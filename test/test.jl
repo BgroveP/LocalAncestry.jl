@@ -1,5 +1,5 @@
 
-using AlleleOrigins
+using AlleleOrigins, DataFrames, CSV, BenchmarkTools
  
 reference_path = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/vcf/rotationalcattle_any_purebredparents_replicate2.vcf"
 target_path = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/vcf/rotationalcattle_any_F1_replicate2.vcf"
@@ -16,8 +16,5 @@ ploidity = 2
 minProb = 0.9
 
 
-AlleleOrigins.origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb)
-
-
-
+@btime AlleleOrigins.origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb)
 
