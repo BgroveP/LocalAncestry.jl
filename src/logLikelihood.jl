@@ -11,8 +11,8 @@ function getLL(region,haplotype,data, popDict)
             sum_H_bh = length(popDict[p]) + size(nUniqueHaplo,1) # Why this??? size(nUniqueHaplo,1) = 1??
             for h in eachrow(haplotype)
                 #how many times we observe a specific haplotype in each breed + 1
-                H_bh = count_tokens_T_in_class(data[popDict[p],region], h) 
-                logH_bh = H_bh == 0 ? -10^-16 : log(H_bh/sum_H_bh)
+                H_bh = count_tokens_T_in_class(data[popDict[p],region], h) + 1
+                logH_bh = log(H_bh/sum_H_bh)
                 haskey(LogL, h) ? LogL[h][p] = logH_bh : LogL[h]=Dict(p=> logH_bh)
             end
         end

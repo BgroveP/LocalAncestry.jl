@@ -38,4 +38,7 @@ function makePriors(C,id,inputPrior)
     #    println(logPrior)
         return logPrior
     end
+
+
+
     
