@@ -24,7 +24,7 @@ for r in 1:10
         #BenchmarkTools.DEFAULT_PARAMETERS.seconds = 100
         #@benchmark AlleleOrigins.origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb)
         probs, classes, library = AlleleOrigins.origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb)
-        overall, per_locus = evaluate(classes, map_path, true_origins, chromosome)
+        overall, per_locus = AlleleOrigins.evaluate(classes, map_path, true_origins, chromosome)
         
         println("- chromosome $c: ", round(overall, sigdigits=2))
 
