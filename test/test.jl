@@ -1,6 +1,8 @@
 
 using AlleleOrigins, DataFrames, CSV, BenchmarkTools
 
+
+
 for r in 1:10
     println("replicate: ", r)
     for c in 1:5
@@ -21,10 +23,8 @@ for r in 1:10
         minProb = 0.8
 
 
-        #BenchmarkTools.DEFAULT_PARAMETERS.seconds = 100
-        #@benchmark AlleleOrigins.origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb)
         probs, classes, library = AlleleOrigins.origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb)
-        overall, per_locus = AlleleOrigins.evaluate(classes, map_path, true_origins, chromosome)
+        overall, per_locus = AlleleOrigins.evaluate(classes, map_path, true_origins, library, chromosome)
         
         println("- chromosome $c: ", round(overall, sigdigits=2))
 
