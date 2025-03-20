@@ -49,7 +49,7 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
         end
     end
 
-    return postProb, postClass
+    return postProb, postClass, haplotypeLibrary
 end
 
 
