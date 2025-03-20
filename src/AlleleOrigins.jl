@@ -12,4 +12,5 @@ include("misc.jl")
 include("predict.jl")
 include("priors.jl")
 include("read.jl")
+include("evaluate.jl")
 end

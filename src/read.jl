@@ -55,3 +55,28 @@ function readVCF(file, chromosome)
 
     return x, individuals
 end
+
+function readTrue(file, map, chromosome, individuals)
+
+    genomic_map = CSV.read(map, DataFrame)
+    columns_from_file = findall(genomic_map.chromosome .== chromosome) 
+    out = zeros(Int32, 2*length(individuals), length(columns_from_file))
+    outInd = string.(zeros(Int8, 2*length(individuals)))
+    inviduals_strings = string.(individuals)
+    open(file, "r") do reader
+        iterator = 1
+        for line in eachline(reader)
+            # Convert the line to an integer
+            splitted_string = split(line, "\t")
+            numbers = parse.(Int, splitted_string[2:end])
+            if any(splitted_string[1] .== inviduals_strings)
+                out[iterator, :] = numbers[columns_from_file]
+                outInd[iterator] =  splitted_string[1]
+                iterator = iterator + 1
+            end
+        end
+    end
+
+    return out, outInd
+end
+
