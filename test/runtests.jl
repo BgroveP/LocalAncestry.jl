@@ -33,7 +33,6 @@ vcfcontents = """##fileformat=VCFv4.2
                     2\t70\tlocus18\tA\tG\t.\t.\t.\tGT\t0|1\t1/0\t1|0
                     2\t80\tlocus19\tA\tG\t.\t.\t.\tGT\t1|0\t1/1\t0|1
                     2\t100\tlocus20\tA\tG\t.\t.\t.\tGT\t1|1\t0/1\t1|1
-
                     """
 vcfexpected = [[1 1 1 1 1 1 1 0 1 1;
         1 1 1 0 1 1 1 1 0 1;

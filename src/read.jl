@@ -52,7 +52,6 @@ function readVCF(file, chromosome)
             foundLargerChromosome = true
         end
     end
-    close(file)
     return x, individuals
 end
 
