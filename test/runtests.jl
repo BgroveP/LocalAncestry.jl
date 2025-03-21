@@ -4,9 +4,8 @@ using CSV
 using Tables
 using AlleleOrigins
 
-# File contents
-
-vcfcontents = """##fileformat=VCFv4.2
+# Test objects for reference
+referencevcf = """##fileformat=VCFv4.2
                     ##FILTER=<ID=PASS,Description="All filters passed">
                     ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
                     ##contig=<ID=1,length=40>
@@ -34,7 +33,7 @@ vcfcontents = """##fileformat=VCFv4.2
                     2\t80\tlocus19\tA\tG\t.\t.\t.\tGT\t1|0\t1/1\t0|1
                     2\t100\tlocus20\tA\tG\t.\t.\t.\tGT\t1|1\t0/1\t1|1
                     """
-vcfexpected = [[1 1 1 1 1 1 1 0 1 1;
+referencehaplotypes = [[1 1 1 1 1 1 1 0 1 1;
         1 1 1 0 1 1 1 1 0 1;
         1 1 1 0 1 1 1 1 1 0;
         1 1 1 1 1 1 1 0 1 1;
@@ -48,68 +47,31 @@ vcfexpected = [[1 1 1 1 1 1 1 0 1 1;
         1 1 1 1 1 1 1 0 1 1]
 ]
 
+
+# Test of read functions such as readVCF 
 @testset verbose = true "IO" begin
     @testset "vcf" begin
         for c in 1:2
         mktempdir() do temp_dir
             temp_file_path = joinpath(temp_dir, "test.vcf")
-            write(temp_file_path, vcfcontents)
+            write(temp_file_path, referencevcf)
                 result, _ = AlleleOrigins.readVCF(temp_file_path, c)
-                @test all(result .== vcfexpected[c])
+                @test all(result .== referencehaplotypes[c])
             end
         end
     end
 end
 
+# Test of function that constructs dictionary of priors
+populations = 'a':'z'
+individuals = collect(1:100)
 @testset verbose = true "Priors" begin
     @testset "Same" begin
-        alphabet = 'a':'z'
-        for p in 1:10
-            tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-            combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-            @test all(combined_vector .== log(1 / p))
+        for (i, p) in enumerate(populations)
+            pop_subset = collect('a':p)
+            tmp = AlleleOrigins.makePriors(pop_subset, individuals, [])
+            combined_vector = [v for v in values(tmp[i]) for k in pop_subset for i in individuals]
+            @test all(combined_vector .== log(1 / i))
         end
     end
 end
-
-@testset "Library" begin
-    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
-    for p in 1:10
-        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-        @test all(combined_vector .== log(1 / p))
-    end
-end
-
-@testset "Likelihood" begin
-    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
-    for p in 1:10
-        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-        @test all(combined_vector .== log(1 / p))
-    end
-end
-
-
-
-
-@testset "Prediction" begin
-    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
-    for p in 1:10
-        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-        @test all(combined_vector .== log(1 / p))
-    end
-end
-
-
-
-@testset "Refinement" begin
-    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
-    for p in 1:10
-        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-        @test all(combined_vector .== log(1 / p))
-    end
-end
-
