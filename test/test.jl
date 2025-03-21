@@ -1,13 +1,13 @@
 
 using AlleleOrigins, DataFrames, CSV, BenchmarkTools
 
-
-
+for p in ["F1", "crossbred"]
+    println("populations: ", p)
 for r in 1:10
     println("replicate: ", r)
     for c in 1:5
         reference_path = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/vcf/rotationalcattle_purebredparents_replicate$r.vcf"
-        target_path = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/vcf/rotationalcattle_F1_replicate$r.vcf"
+        target_path = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/vcf/rotationalcattle_$(p)_replicate$r.vcf"
         origins_path = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/population_origins_of_individuals/rotationalcattle_purebredparents_replicate$r.csv"
         true_origins = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/haplotype_boa/rotationalcattle_crossbred_replicate$r.csv"
         map_path = "/usr/home/qgg/bgrovep/projects/AdmixPop/data/genomic_map/rotationalcattle.csv"
@@ -31,5 +31,4 @@ for r in 1:10
     end
 end
 
-
-
+end
