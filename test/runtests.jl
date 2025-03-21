@@ -4,7 +4,7 @@ using CSV
 using Tables
 using AlleleOrigins
 
-# Test objects for reference
+# Test of read functions such as readVCF 
 referencevcf = """##fileformat=VCFv4.2
                     ##FILTER=<ID=PASS,Description="All filters passed">
                     ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
@@ -48,7 +48,6 @@ referencehaplotypes = [[1 1 1 1 1 1 1 0 1 1;
 ]
 
 
-# Test of read functions such as readVCF 
 @testset verbose = true "IO" begin
     @testset "vcf" begin
         for c in 1:2
@@ -75,3 +74,49 @@ individuals = collect(1:100)
         end
     end
 end
+
+
+# Test of function that constructs haplotypes library
+popDict = Dict("a" => collect(1:10), "b" => collect(11:20), "c" => collect(21:30))
+haplotypes = [[0 0 1 0 1 0];[0 0 0 0 0 1];[1 0 0 0 0 0];[0 0 0 0 0 0];[0 0 0 0 0 0];[0 0 0 0 0 0];[0 0 1 0 1 0];[0 0 0 0 0 1];[1 0 0 0 0 0];[1 0 1 0 0 0];[1 0 0 1 1 0];[0 0 0 1 0 1];[1 0 0 0 0 1];[0 0 1 1 1 0];[1 1 1 1 1 0];[1 1 1 1 0 0];[1 0 1 0 1 0];[1 0 1 1 1 1];[1 1 0 0 1 0];[1 1 1 1 1 1];[0 1 1 0 1 1];[1 1 1 1 1 0];[1 1 1 1 1 0];[1 1 1 1 1 1];[0 1 1 1 1 1];[1 1 1 0 1 0];[0 1 1 1 1 1];[1 1 1 1 1 0];[1 1 1 1 1 1];[1 0 1 1 1 1]]
+
+@testset "Library" begin
+    for p in 1:10
+        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
+        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
+        @test all(combined_vector .== log(1 / p))
+    end
+end
+
+@testset "Likelihood" begin
+    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
+    for p in 1:10
+        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
+        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
+        @test all(combined_vector .== log(1 / p))
+    end
+end
+
+
+
+
+@testset "Prediction" begin
+    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
+    for p in 1:10
+        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
+        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
+        @test all(combined_vector .== log(1 / p))
+    end
+end
+
+
+
+@testset "Refinement" begin
+    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
+    for p in 1:10
+        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
+        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
+        @test all(combined_vector .== log(1 / p))
+    end
+end
+
