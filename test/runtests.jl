@@ -1,8 +1,7 @@
-using AlleleOrigins
-using Test
+using ARV
 using CSV
 using Tables
-using AlleleOrigins
+using Test
 
 # Test of read functions such as readVCF 
 include("test/testobjects.jl")
@@ -13,7 +12,7 @@ include("test/testobjects.jl")
             mktempdir() do temp_dir
                 temp_file_path = joinpath(temp_dir, "test.vcf")
                 write(temp_file_path, referencevcf)
-                result, _ = AlleleOrigins.readVCF(temp_file_path, c)
+                result, _ = ARV.readVCF(temp_file_path, c)
                 @test all(result .== referencehaplotypes[c])
             end
         end
@@ -27,7 +26,7 @@ individuals = collect(1:100)
     @testset "Same" begin
         for (i, p) in enumerate(populations)
             pop_subset = collect('a':p)
-            tmp = AlleleOrigins.makePriors(pop_subset, individuals, [])
+            tmp = ARV.makePriors(pop_subset, individuals, [])
             combined_vector = [v for v in values(tmp[i]) for k in pop_subset for i in individuals]
             @test all(combined_vector .== log(1 / i))
         end
@@ -39,7 +38,7 @@ end
 @testset verbose = true "Library" begin
     @testset "Overall" begin
         for (i, c) in enumerate(criteria)
-            @test expectedOutputLibraryOverall[i] == AlleleOrigins.getHaploBlocks(1, 1, c, haplotypes, popDict, 1)
+            @test expectedOutputLibraryOverall[i] == ARV.getHaploBlocks(1, 1, c, haplotypes, popDict, 1)
         end
     end
 
@@ -48,7 +47,7 @@ end
             for (i, c) in enumerate(criteria)
                 for k in keys(expectedOutputLibraryOverall[i])
                     if (k[1] + 1 < 6)
-                    tmpkey, tmpdata = AlleleOrigins.haploSearch(1,1, c, haplotypes, k[1], popDict);
+                    tmpkey, tmpdata = ARV.haploSearch(1,1, c, haplotypes, k[1], popDict);
                    @test tmpkey == k
                 end
             end
@@ -58,7 +57,7 @@ end
         for (i, c) in enumerate(criteria)
             for k in keys(expectedOutputLibraryOverall[i])
                 if (k[1] + 1 < 6)
-                tmpkey, tmpdata = AlleleOrigins.haploSearch(1,1, c, haplotypes, k[1], popDict);
+                tmpkey, tmpdata = ARV.haploSearch(1,1, c, haplotypes, k[1], popDict);
                 @test tmpdata == expectedOutputLibraryOverall[i][k]
             end
         end
@@ -74,7 +73,7 @@ end
 @testset "Likelihood" begin
     popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
     for p in 1:10
-        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
+        tmp = ARV.makePriors(alphabet[1:p], string.(collect(1:p)), [])
         combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
         @test all(combined_vector .== log(1 / p))
     end
@@ -86,7 +85,7 @@ end
 @testset "Prediction" begin
     popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
     for p in 1:10
-        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
+        tmp = ARV.makePriors(alphabet[1:p], string.(collect(1:p)), [])
         combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
         @test all(combined_vector .== log(1 / p))
     end
@@ -97,7 +96,7 @@ end
 @testset "Refinement" begin
     popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
     for p in 1:10
-        tmp = AlleleOrigins.makePriors(alphabet[1:p], string.(collect(1:p)), [])
+        tmp = ARV.makePriors(alphabet[1:p], string.(collect(1:p)), [])
         combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
         @test all(combined_vector .== log(1 / p))
     end

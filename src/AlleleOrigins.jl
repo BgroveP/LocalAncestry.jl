@@ -1,4 +1,4 @@
-module AlleleOrigins
+module ARV
 using VariantCallFormat, BenchmarkTools, CSV, DataFrames, OrderedCollections
 
 # Write your package code here.

@@ -1,7 +1,7 @@
 # Evaluate
 function evaluate(classes, map_path, true_origins, library, chromosome)
     individuals = unique(replace.(string.(keys(classes)), r"_hap.$" => ""))
-    trueO, trueI = AlleleOrigins.readTrue(true_origins, map_path, chromosome, individuals)
+    trueO, trueI = ARV.readTrue(true_origins, map_path, chromosome, individuals)
     popDict = Dict{String,Int}("holstein" => 1, "jersey" => 2, "reddairy" => 3)
 
     individuals_with_predictions = string.(keys(classes))
