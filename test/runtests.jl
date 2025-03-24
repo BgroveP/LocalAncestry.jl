@@ -4,8 +4,8 @@ using Tables
 using Test
 
 # Test of read functions such as readVCF 
-include("test/testobjects.jl")
-
+include("testobjects.jl")
+@testset verbose = true "ARV.jl" begin
 @testset verbose = true "IO" begin
     @testset "vcf" begin
         for c in 1:2
@@ -67,38 +67,4 @@ end
 @testset verbose = true "Informativeness" begin
 end
 end
-
-
-# Test function that compur
-@testset "Likelihood" begin
-    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
-    for p in 1:10
-        tmp = ARV.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-        @test all(combined_vector .== log(1 / p))
-    end
 end
-
-
-
-
-@testset "Prediction" begin
-    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
-    for p in 1:10
-        tmp = ARV.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-        @test all(combined_vector .== log(1 / p))
-    end
-end
-
-
-
-@testset "Refinement" begin
-    popDict = Dict{String,Vector{Int64}}("a" => [1, 2, 3, 4], "b")
-    for p in 1:10
-        tmp = ARV.makePriors(alphabet[1:p], string.(collect(1:p)), [])
-        combined_vector = [v for v in values(tmp["1"]) for k in alphabet[1:p]]
-        @test all(combined_vector .== log(1 / p))
-    end
-end
-
