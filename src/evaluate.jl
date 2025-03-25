@@ -31,7 +31,7 @@ end
 
 
 # Evaluate
-function evaluate2(classes, map_path, true_origins, library, chromosome, haplotype=0, minProb=0.0)
+function evaluate2(classes, map_path, true_origins, library, probs, chromosome, haplotype=0, minProb=0.0)
     individuals = unique(replace.(string.(keys(classes)), r"_hap.$" => ""))
     trueO, trueI = ARV.readTrue(true_origins, map_path, chromosome, individuals)
     popDict = Dict{String,Int}("holstein" => 1, "jersey" => 2, "reddairy" => 3)
