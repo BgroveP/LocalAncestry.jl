@@ -28,3 +28,80 @@ function evaluate(classes, map_path, true_origins, library, chromosome)
 
     return overall, per_locus
 end
+
+
+# Evaluate
+function evaluate2(classes, map_path, true_origins, library, chromosome, haplotype=0, minProb=0.0)
+    individuals = unique(replace.(string.(keys(classes)), r"_hap.$" => ""))
+    trueO, trueI = ARV.readTrue(true_origins, map_path, chromosome, individuals)
+    popDict = Dict{String,Int}("holstein" => 1, "jersey" => 2, "reddairy" => 3)
+
+    individuals_with_predictions = string.(keys(classes))
+    individuals_with_true = string.(trueI) .* "_hap" .* repeat(string.(1:2), outer=Int(size(trueI, 1) / 2))
+
+    individuals_with_both = intersect(individuals_with_true, individuals_with_predictions)
+
+    # Print if some animals not present
+    if length(individuals_with_both) != length(individuals_with_predictions)
+        println(string(length(individuals_with_both) - length(individuals_with_predictions)) * " individuals with predictions not in reference!")
+    end
+
+    if haplotype > 0
+        individuals_with_both = individuals_with_both[findall(occursin("_hap$haplotype", i) for i in individuals_with_both)]
+        indices_in_both = [findfirst(ind .== individuals_with_true) for ind in individuals_with_both]
+    end
+
+    x = DataFrame(block=string.(keys(library)),
+        size=length.(keys(library)),
+        accuracy=0.0,
+        meanMaxPostProb=0.0,
+        meanRefine=0.0,
+        meanComplexBlock = 0.0)
+
+    for i in string.(keys(popDict)), j in string.(keys(popDict))
+            k = "O" * i * "P" * j
+            x[:, k] .= 0.0
+    end
+    
+    # Initialize 
+    firsti = string.(keys(probs))[1]
+    probVec = [probs[firsti][k][1] for k in keys(probs[firsti])]
+    divisor = size(individuals_with_both, 1)
+    pops = string.(keys(popDict))
+    
+    # Overall accuracy
+    for (j, b) in enumerate(x.block)
+        r = ARV.rangeFromString(b)
+        Ovec = [sum(trueO[indices_in_both,r] .== popDict[k]) for k in pops]
+
+        for (i, ind) in enumerate(individuals_with_both)
+
+            # Overall accuracy
+            x.accuracy[j] += mean(trueO[indices_in_both[i], r] .== popDict[classes[ind][j]]) / divisor
+
+            # 
+            for (m, k) in enumerate(keys(probs[ind]))
+                probVec[m] = probs[ind][k][j]             
+            end
+            x.meanMaxPostProb[j] += maximum(probVec) / divisor
+
+            # Rate of refinement
+            x.meanRefine[j] += (maximum(probVec) <= minProb) / divisor
+
+            # Crossover mid-block
+            x.meanComplexBlock[j] += (size(unique(trueO[indices_in_both[i], r]), 1) > 1)/divisor
+
+            # Confusion matrix
+            predPop = classes[ind][j]
+            for m in r
+                truePopIndice = findfirst(trueO[indices_in_both[i], m] .== values(popDict))
+                truePop = pops[truePopIndice]
+
+                tempColumn =  "O" * truePop * "P" * predPop
+                x[j, tempColumn] += 1/Ovec[truePopIndice]
+            end
+        end
+    end
+
+    return x
+end

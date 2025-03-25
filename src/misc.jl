@@ -63,3 +63,33 @@ function searchBackwards(est0_ind,prob0_ind,pos)
     backwards = getindex.(collect(values.(Ref(prob0_ind))),pos-countBackwards)
     return backwards,countBackwards
 end
+
+
+"""
+    rangeFromString(x)
+
+...
+# Arguments
+- `x::String`: The range that should be converted from string.
+...
+
+Converts a integer range from string to actual range.
+Can only convert to ranges with increments of one.
+
+# Examples
+```julia-repl
+julia> BoA.rangeFromString("1:2")
+1:2
+
+julia> BoA.rangeFromString("1:10")
+1:10
+
+julia> typeof(BoA.rangeFromString("1:10"))
+UnitRange{Int64}
+```
+"""
+function rangeFromString(x)
+    startAndStop = parse.(Int, split(x, ":"))
+    range = startAndStop[1]:startAndStop[2]
+end 
+
