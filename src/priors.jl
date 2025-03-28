@@ -88,6 +88,9 @@ function priorsCGR(referenceData, targetData, targetIndividuals, referenceOrigin
                 min_x = max.(log.(min_x), repeat([-10^10], length(populations)))
             elseif certainty == "auto"
                 min_x = max.(log.(min_f .* priors .+ (1 - min_f) .* min_x), repeat([-10^10], length(populations)))
+            elseif certainty == "autosqrt"
+                scalar = sqrt(min_f)
+                min_x = max.(log.(scalar .* priors .+ (1 - scalar) .* min_x), repeat([-10^10], length(populations)))
             else
                 throw(DomainError(certainty, "expects 'full' or 'auto'"))
             end

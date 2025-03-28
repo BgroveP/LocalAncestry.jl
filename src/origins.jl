@@ -18,10 +18,20 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
     end
 
     ## Priors
-    priorProb = makePriors(populations, targetIndividuals, originPriors)
-    priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, certainty="full")
+    if originPriors == "flat"
+        priorProb = priorsFlat(populations, targetIndividuals)
+    elseif originPriors == "CGR"
+        priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, "auto")
+    elseif originPriors == "CGRfull"
+        priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, "full")
+    elseif originPriors == "CGRsqrt"
+        priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, "autosqrt")
+    else
+        throw(DomainError(originPriors, "Expected 'flat' or 'CGR'"))
+    end
+
     ## Haplotype library
-    haplotypeLibrary = getHaploBlocks(minHaploSize, incHaploSize, haploCrit, referenceData, popDict, 1)
+    haplotypeLibrary = ARV.getHaploBlocks(minHaploSize, incHaploSize, haploCrit, referenceData, popDict, 1)
     nHaplotypeBlocks = length(haplotypeLibrary)
 
     #Store, donor haplo is free of ID, already removed above
@@ -35,7 +45,7 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
     # Get log-likelihoods
     LL = OrderedDict()
     for (region, Haplo) in haplotypeLibrary
-        LL[region] = getLL(region, Haplo, referenceData, popDict)
+        LL[region] = ARV.getLL(region, Haplo, referenceData, popDict)
     end
 
     # predict
@@ -43,9 +53,9 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
         for h in 1:ploidity
             idname = id * "_hap" * string(h)
 
-            postProb[idname], postClass[idname] = predInd(priorProb[id], targetData[2*i+h-2, :], LL, populations, nHaplotypeBlocks, minProb)
+            postProb[idname], postClass[idname] = ARV.predInd(priorProb[idname], targetData[2*i+h-2, :], LL, populations, nHaplotypeBlocks, minProb)
             # Assign missing
-            postClass[idname] = refineBoA(postClass[idname], postProb[idname])
+            postClass[idname] = ARV.refineBoA(postClass[idname], postProb[idname])
         end
     end
 
