@@ -7,9 +7,9 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
     populations = unique(referenceOrigins[!, "population"])
 
     ## Data
-    referenceData, referenceIndividuals = readVCF(reference_path, chromosome)
-    targetData, targetIndividuals = readVCF(target_path, chromosome)
-    referenceOriginsVector = haplotypeOrigins(referenceIndividuals, referenceOrigins)
+    referenceData, referenceIndividuals = ARV.readVCF(reference_path, chromosome)
+    targetData, targetIndividuals = ARV.readVCF(target_path, chromosome)
+    referenceOriginsVector = ARV.haplotypeOrigins(referenceIndividuals, referenceOrigins)
 
     # reference populations 
     popDict = Dict{String,Vector{Int64}}()
@@ -19,7 +19,7 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
 
     ## Priors
     priorProb = makePriors(populations, targetIndividuals, originPriors)
-
+    priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, certainty="full")
     ## Haplotype library
     haplotypeLibrary = getHaploBlocks(minHaploSize, incHaploSize, haploCrit, referenceData, popDict, 1)
     nHaplotypeBlocks = length(haplotypeLibrary)

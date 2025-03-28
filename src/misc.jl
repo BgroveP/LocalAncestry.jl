@@ -91,5 +91,24 @@ UnitRange{Int64}
 function rangeFromString(x)
     startAndStop = parse.(Int, split(x, ":"))
     range = startAndStop[1]:startAndStop[2]
+    return range
 end 
+
+
+function nloptObjective(x::Vector, grad::Vector, y::Vector, X::Matrix)
+    if length(grad) > 0
+        grad[1] = 0
+        grad[2] = 0.0
+    end
+    return mean((y - X * x).^2) 
+end
+
+function nloptConstraint(x::Vector, grad::Vector)
+    if length(grad) > 0
+        grad[1] = 0.0
+        grad[2] = 0.0
+    end
+    return sum(x) - 1
+end
+
 
