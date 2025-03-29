@@ -1,6 +1,4 @@
 
-inputPrior = priorsCGR(reference_path, referenceOrigins, target_path, chromosome, "auto")
-method = "CGR"
 function makePriors(C, id, method)
     !isa(id, Vector) ? id = [id] : nothing
     sameLogPrior = log.(ones(length(C)) .* (1.0 / length(C)))

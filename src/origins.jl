@@ -1,6 +1,6 @@
 
 
-function origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb)
+function origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb; algorithm="NB")
     # Function
 
     ## Derived information
@@ -49,16 +49,21 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
     end
 
     # predict
-    for (i, id) in enumerate(targetIndividuals)
-        for h in 1:ploidity
-            idname = id * "_hap" * string(h)
+    if algorithm == "NB"
+        for (i, id) in enumerate(targetIndividuals)
+            for h in 1:ploidity
+                idname = id * "_hap" * string(h)
 
-            postProb[idname], postClass[idname] = ARV.predInd(priorProb[idname], targetData[2*i+h-2, :], LL, populations, nHaplotypeBlocks, minProb)
-            # Assign missing
-            postClass[idname] = ARV.refineBoA(postClass[idname], postProb[idname])
+                postProb[idname], postClass[idname] = ARV.predInd(priorProb[idname], targetData[2*i+h-2, :], LL, populations, nHaplotypeBlocks, minProb)
+                # Assign missing
+                postClass[idname] = ARV.refineBoA(postClass[idname], postProb[idname])
+            end
         end
+    elseif algorithm == "HMM"
+        postProb, postClass = predictHMM(LL, populations, targetIndividuals, probStayState, targetData, haplotypeLibrary)
+    else
+        throw(DomainError(algorithm, "Expected algorithm to be HMM or NB"))
     end
-
     return postProb, postClass, haplotypeLibrary
 end
 
