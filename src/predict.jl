@@ -1,6 +1,6 @@
 
 # Naive Bayes
-function predictNaiveBayes!(postProb, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel)
+function predictNaiveBayes!(postProb, targetData, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel)
     ProbVec = OrderedDict(populations .=> [Vector{Union{Missing,Float64}}(missing, nHaplotypeBlocks) for i in 1:length(populations)])
     for (i, id) in enumerate(targetIndividuals)
         for h in 1:ploidity

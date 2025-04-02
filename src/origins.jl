@@ -48,7 +48,7 @@ function getProbabilities(predictType, targetIndividuals, ploidity, LL, populati
         [OrderedDict(populations .=> [Vector{Union{Missing,Float64}}(missing, nHaplotypeBlocks) for i in 1:length(populations)]) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
 
     if predictType == "Naive Bayes"
-        predictNaiveBayes!(postProb, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel)
+        predictNaiveBayes!(postProb, targetData, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel)
     elseif predictType == "Hidden Markov"
         predictHiddenMarkov!(postProb, LL, populations, targetIndividuals, probStayState, targetData, ploidity=ploidity)
     else
