@@ -17,51 +17,52 @@ end
 
 
 function haplotypeOrigins(i, o)
-    x = DataFrames.DataFrame(individual = repeat(i, inner = 2))
-    return DataFrames.leftjoin(x, o, on = "individual")[!, "population"]
+    x = DataFrames.DataFrame(individual=repeat(i, inner=2))
+    return string.(DataFrames.leftjoin(x, o, on="individual")[!, "population"])
 end
 
 
-rangeChange(rObject;firstInc=0,firstDec=0,lastInc=0,lastDec=0) = (first(rObject) + firstInc - firstDec):(last(rObject) + lastInc - lastDec)
+rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0) = (first(rObject)+firstInc-firstDec):(last(rObject)+lastInc-lastDec)
 
 function count_tokens_T_in_class(X, t)
     count = 0
-      for x in eachrow(X)
-          if all(x .== t)
-              count += 1
-          end
-      end #Loop over training set
-      return count
-  end
-  
+    for x in eachrow(X)
+        if all(x .== t)
+            count += 1
+        end
+    end #Loop over training set
+    return count
+end
 
-  
-function searchForward(est0_ind,prob0_ind,pos)
+function getDictionaryCrosssection(x, y)
+    return getindex.(collect(values.(Ref(x))), y)
+end
+
+function searchForward(est0_ind, prob0_ind, pos)
     countForward = 1
-    while ismissing(est0_ind[pos+countForward]) 
+    while ismissing(est0_ind[pos+countForward])
         countForward += 1
-        if pos+countForward > length(est0_ind)
+        if (pos + countForward) > length(est0_ind)
             countForward = 0
             break
         end
     end
-#    println("counted $countForward steps forward for pos $pos")
-    forward = getindex.(collect(values.(Ref(prob0_ind))),pos+countForward)
-    return forward,countForward
+    forward = getDictionaryCrosssection(prob0_ind, pos + countForward)
+    return forward, countForward
 end
 
-function searchBackwards(est0_ind,prob0_ind,pos)
+function searchBackwards(est0_ind, prob0_ind, pos)
     countBackwards = 1
     while ismissing(est0_ind[pos-countBackwards])
         countBackwards += 1
-        if pos-countBackwards < 1
-        countBackwards = 0
+        if (pos - countBackwards) < 1
+            countBackwards = 0
             break
         end
     end
-#    println("counted $countBackwards steps backwards for pos $pos")
-    backwards = getindex.(collect(values.(Ref(prob0_ind))),pos-countBackwards)
-    return backwards,countBackwards
+    #    println("counted $countBackwards steps backwards for pos $pos")
+    backwards = getDictionaryCrosssection(prob0_ind, pos - countBackwards)
+    return backwards, countBackwards
 end
 
 
@@ -91,5 +92,51 @@ UnitRange{Int64}
 function rangeFromString(x)
     startAndStop = parse.(Int, split(x, ":"))
     range = startAndStop[1]:startAndStop[2]
-end 
+    return range
+end
 
+
+function getPopulations(x::Vector{String})::Vector{String}
+    return unique(x)
+end
+
+function getPopulationDictionary(x)
+    y = Dict{String,Vector{Int64}}()
+    for i in unique(x)
+        y[i] = findall(i .== x)
+    end
+    return y
+end
+
+function alleleFrequencies(x, y)
+    pops = getPopulations(y)
+    p = zeros(Float32, size(x, 2), length(pops))
+    for (j, pop) in enumerate(pops)
+        rows = findall(pop .== y)
+        p[:, j] = mean(x[rows, :], dims=1)
+    end
+
+    return p
+end
+
+function instantiateOutput()
+
+    postClass = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
+        [Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
+
+    return postProb, postClass
+end
+
+
+function calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
+    LL = OrderedDict()
+    for (region, Haplo) in haplotypeLibrary
+        LL[region] = ARV.getLL(region, Haplo, referenceData, popDict)
+    end
+
+    return LL
+end
+
+function mean(x)
+    return sum(x) / length(x)
+end
