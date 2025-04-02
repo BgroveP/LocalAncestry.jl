@@ -61,7 +61,7 @@ function searchBackwards(est0_ind, prob0_ind, pos)
         end
     end
     #    println("counted $countBackwards steps backwards for pos $pos")
-    backwards = getDictionaryCrosssection(prob0_ind, pos - countBackwards) 
+    backwards = getDictionaryCrosssection(prob0_ind, pos - countBackwards)
     return backwards, countBackwards
 end
 
@@ -137,3 +137,6 @@ function calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
     return LL
 end
 
+function mean(x)
+    return sum(x) / length(x)
+end
