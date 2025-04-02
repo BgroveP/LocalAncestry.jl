@@ -1,5 +1,5 @@
 module ARV
-using VariantCallFormat, BenchmarkTools, CSV, DataFrames, OrderedCollections, Tables
+using VariantCallFormat, CSV, DataFrames, OrderedCollections, Tables
 
 # Write your package code here.
 include("assignMissing.jl")
