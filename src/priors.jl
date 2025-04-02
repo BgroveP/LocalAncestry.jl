@@ -1,4 +1,6 @@
 
+# Archived function for constructing priors.
+# It may be useful to keep some input flexibility from this function.
 function makePriors(C, id, method)
     !isa(id, Vector) ? id = [id] : nothing
     sameLogPrior = log.(ones(length(C)) .* (1.0 / length(C)))
@@ -6,7 +8,7 @@ function makePriors(C, id, method)
     if isempty(inputPrior) && isempty(id)
     elseif (isempty(inputPrior) && !isempty(id))
         for hvec in id
-            logPrior[hvec] = Dict(zip(C, sameLogPrior)) 
+            logPrior[hvec] = Dict(zip(C, sameLogPrior))
         end
     elseif (!isempty(inputPrior) && !isempty(id))
         if isa(inputPrior, String)
@@ -18,7 +20,7 @@ function makePriors(C, id, method)
             priorRead = Matrix(inputPrior)
         elseif isa(inputPrior, Vector)
             if isa(first(inputPrior), Dict)
-                
+
             end
         else
             throw(DomainError(ch, "expects A,C,G, or T"))
@@ -42,61 +44,90 @@ function makePriors(C, id, method)
     return logPrior
 end
 
-function priorsFlat(C, I, P = 2)
+# Main function for flat priors
+function priorsFlat(C, I)
+    n = "individual"
+    c = unique(C)
     !isa(I, Vector) ? I = [I] : nothing
-    v = log.(ones(length(C)) .* (1.0 / length(C)))
-    o = Dict{String, Dict{String, Float64}}()
+    v = log.(ones(length(c)) .* (1.0 / length(c)))
+    o = Dict{String, Dict{String,Float64}}()
 
-    for i in I 
-        for p in 1:P
-        o[i * "_hap" * string(p)] = Dict(zip(C, v))
+    for i in I
+                o[i] = Dict(zip(c, v))
     end
+    return o, n
 end
+
+# Main function for constrained genomic regression (CGR)
+function priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, certainty)
+    n = "haplotype"
+    populations = getPopulations(referenceOriginsVector)
+    p = alleleFrequencies(referenceData, referenceOriginsVector)
+
+    # Initialize return object
+    opt = optimizerCGR(populations)
+    priors = repeat([1 ./ length(populations)], length(populations))
+
+    out = performCGR(targetData, targetIndividuals, ploidity, opt, priors, certainty)
+
+    return out, n
+end
+
+# Support function for CGR
+function optimizerCGR(x::Vector{String})
+    n = length(x)
+    o = NLopt.Opt(:LN_COBYLA, n)
+    lower_bounds!(o, zeros(Float64, n))
+    NLopt.equality_constraint!(o, (x, g) -> constraintCGR(x, g), 1e-8)
+    maxeval!(o, 1000)
     return o
 end
 
-function priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, certainty="full")
+function objectiveCGR(x::Vector, grad::Vector, y::Vector, X::Matrix)
+    if length(grad) > 0
+        grad[1] = 0
+        grad[2] = 0.0
+    end
+    return mean((y - X * x).^2) 
+end
 
-    populations = unique(referenceOriginsVector)
-    p = zeros(Float32, size(referenceData, 2), length(populations))
+function constraintCGR(x::Vector, grad::Vector)
+    if length(grad) > 0
+        grad[1] = 0.0
+        grad[2] = 0.0
+    end
+    return sum(x) - 1
+end
 
-    for (j, pop) in enumerate(populations)
-        rows = findall(pop .== referenceOriginsVector)
-        p[:, j] = mean(referenceData[rows, :], dims=1)
+function certaintyScaleCGR(certainty, min_x, min_f, populations, priors)
+    
+    if certainty == "CGRfull"
+        min_x = max.(log.(min_x), repeat([-10^10], length(populations)))
+    elseif certainty == "CGR"
+        min_x = max.(log.(min_f .* priors .+ (1 - min_f) .* min_x), repeat([-10^10], length(populations)))
+    elseif certainty == "CGRsqrt"
+        scalar = sqrt(min_f)
+        min_x = max.(log.(scalar .* priors .+ (1 - scalar) .* min_x), repeat([-10^10], length(populations)))
+    else
+        throw(DomainError(certainty, "expects 'CGRfull' or 'CGR'"))
     end
 
-    # Initialize return object
-    out = Dict{String, Dict{String, Float64}}()
+    return min_x
+end
 
-    opt = NLopt.Opt(:LN_COBYLA, 3)
-    lower_bounds!(opt, zeros(Float64, 3))
-    NLopt.equality_constraint!(opt, (x, g) -> nloptConstraint(x, g), 1e-8)
-    maxeval!(opt, 1000)
-    priors = repeat([1 ./ length(populations)], length(populations))
-
+function performCGR(targetData, targetIndividuals, ploidity, opt, priors, certainty)
+    out = Dict{String,Dict{String,Float64}}()
     for (i, ind) in enumerate(targetIndividuals)
-        for h in 1:2
+        for h in 1:ploidity
             outname = ind * "_hap" * string(h)
             inindice = 2 * i + h - 2
             y = (targetData')[:, inindice]
-            NLopt.min_objective!(opt, (x, g) -> nloptObjective(x, g, y, p))
+            NLopt.min_objective!(opt, (x, g) -> objectiveCGR(x, g, y, p))
             min_f, min_x, _ = NLopt.optimize(opt, priors)
 
-            if certainty == "full"
-                min_x = max.(log.(min_x), repeat([-10^10], length(populations)))
-            elseif certainty == "auto"
-                min_x = max.(log.(min_f .* priors .+ (1 - min_f) .* min_x), repeat([-10^10], length(populations)))
-            elseif certainty == "autosqrt"
-                scalar = sqrt(min_f)
-                min_x = max.(log.(scalar .* priors .+ (1 - scalar) .* min_x), repeat([-10^10], length(populations)))
-            else
-                throw(DomainError(certainty, "expects 'full' or 'auto'"))
-            end
-
-            out[outname] = Dict(zip(populations, min_x))
+            out[outname] = Dict(zip(populations, certaintyScaleCGR(certainty, min_x, min_f, populations, priors)))
         end
     end
-
     return out
 end
 

@@ -4,14 +4,14 @@ function getHaploBlocks(initSize,stepSize,threshold, data, popDict,startFrom=1)
     while in(startFrom, 1:nCol)
         if (startFrom == nCol) || (startFrom+stepSize >= nCol) 
             thisBlock = startFrom:nCol 
-            ia, haplotypes = computeIA(data[:, thisBlock],popDict) 
+            ia, haplotypes = ARV.computeIA(data[:, thisBlock],popDict) 
             haploLib[thisBlock] = haplotypes
             break
         else
-            key,value = haploSearch(initSize,stepSize,threshold,data,startFrom, popDict)
+            key,value = ARV.haploSearch(initSize,stepSize,threshold,data,startFrom, popDict)
             haploLib[key] = value
             startFrom = last(key)+1
         end  
     end
-    return haploLib
+    return haploLib, length(haploLib)
 end

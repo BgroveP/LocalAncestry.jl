@@ -1,70 +1,79 @@
 
 
-function origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb; algorithm="NB")
-    # Function
+function origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb; assignType="probonly", predictType="Naive Bayes", probStayState=0.9)
 
-    ## Derived information
-    populations = unique(referenceOrigins[!, "population"])
 
-    ## Data
+    ## Read haplotype data
     referenceData, referenceIndividuals = ARV.readVCF(reference_path, chromosome)
     targetData, targetIndividuals = ARV.readVCF(target_path, chromosome)
-    referenceOriginsVector = ARV.haplotypeOrigins(referenceIndividuals, referenceOrigins)
+    referenceOriginsVector = haplotypeOrigins(referenceIndividuals, referenceOrigins)
 
-    # reference populations 
-    popDict = Dict{String,Vector{Int64}}()
-    for i in unique(referenceOriginsVector)
-        popDict[i] = findall(i .== referenceOriginsVector)
-    end
+    # Get population information
+    populations = getPopulations(referenceOriginsVector)
+    popDict = getPopulationDictionary(referenceOriginsVector)
 
-    ## Priors
+    # Get haplotype library
+    haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(minHaploSize, incHaploSize, haploCrit, referenceData, popDict, 1)
+
+    # Get priors
+    priorProb, priorLevel = getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors)
+
+    # Get log-likelihoods
+    LL = calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
+
+    # predict
+    postProb = getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, minProb, priorProb, priorLevel, probStayState, targetData)
+    postClass = getAssignments(assignType, postProb, populations, LL, minProb, targetIndividuals, ploidity, haplotypeLibrary)
+
+    return postProb, postClass, haplotypeLibrary
+end
+
+function getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors)
+
     if originPriors == "flat"
-        priorProb = priorsFlat(populations, targetIndividuals)
-    elseif originPriors == "CGR"
-        priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, "auto")
-    elseif originPriors == "CGRfull"
-        priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, "full")
-    elseif originPriors == "CGRsqrt"
-        priorProb = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, "autosqrt")
+        x, n = priorsFlat(referenceOriginsVector, targetIndividuals)
+    elseif originPriors[1:3] == "CGR"
+        x, n = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, originPriors)
     else
         throw(DomainError(originPriors, "Expected 'flat' or 'CGR'"))
     end
 
-    ## Haplotype library
-    haplotypeLibrary = ARV.getHaploBlocks(minHaploSize, incHaploSize, haploCrit, referenceData, popDict, 1)
-    nHaplotypeBlocks = length(haplotypeLibrary)
+    return x, n
+end
 
-    #Store, donor haplo is free of ID, already removed above
+function getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, minProb, priorProb, priorLevel, probStayState, targetData)
+
+    # Instantiate output
     postProb = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
         [OrderedDict(populations .=> [Vector{Union{Missing,Float64}}(missing, length(haplotypeLibrary)) for i in 1:length(populations)]) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
 
+    if predictType == "Naive Bayes"
+        predictNaiveBayes!(postProb, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel)
+    elseif predictType == "Hidden Markov"
+        predictHiddenMarkov!(postProb, LL, populations, targetIndividuals, probStayState, targetData, ploidity=ploidity)
+    else
+        throw(DomainError(predictType, "Expected 'Naive Bayes' or 'Hidden Markov'"))
+    end
+    return postProb
+end
+
+function getAssignments(assignType, postProb, populations, LL, minProb, targetIndividuals, ploidity, haplotypeLibrary)
+
+    # Instantiate output
     postClass = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
         [Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
 
+    # Assign certain blocks
+    assignCertain!(postClass, postProb, populations, LL, minProb)
 
-    # Get log-likelihoods
-    LL = OrderedDict()
-    for (region, Haplo) in haplotypeLibrary
-        LL[region] = ARV.getLL(region, Haplo, referenceData, popDict)
-    end
-
-    # predict
-    if algorithm == "NB"
-        for (i, id) in enumerate(targetIndividuals)
-            for h in 1:ploidity
-                idname = id * "_hap" * string(h)
-
-                postProb[idname], postClass[idname] = ARV.predInd(priorProb[idname], targetData[2*i+h-2, :], LL, populations, nHaplotypeBlocks, minProb)
-                # Assign missing
-                postClass[idname] = ARV.refineBoA(postClass[idname], postProb[idname])
-            end
-        end
-    elseif algorithm == "HMM"
-        postProb, postClass = predictHMM(LL, populations, targetIndividuals, probStayState, targetData, haplotypeLibrary)
+    # Assign the rest
+    if assignType == "none"
+    elseif assignType == "probonly"
+        assignFirst!(postClass, postProb)
+    elseif assignType == "Hidden Markov"
+        assignHMM!(postClass, postProb)
     else
-        throw(DomainError(algorithm, "Expected algorithm to be HMM or NB"))
+        throw(DomainError(assignType, "Expected 'probonly' or 'Hidden Markov'"))
     end
-    return postProb, postClass, haplotypeLibrary
+    return postClass
 end
-
-
