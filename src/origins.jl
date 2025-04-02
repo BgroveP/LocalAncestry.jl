@@ -22,7 +22,7 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
     LL = calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
 
     # predict
-    postProb = getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, minProb, priorProb, priorLevel, probStayState, targetData)
+    postProb = getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
     postClass = getAssignments(assignType, postProb, populations, LL, minProb, targetIndividuals, ploidity, haplotypeLibrary)
 
     return postProb, postClass, haplotypeLibrary
@@ -41,11 +41,11 @@ function getPriors(referenceOriginsVector, referenceData, targetIndividuals, tar
     return x, n
 end
 
-function getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, minProb, priorProb, priorLevel, probStayState, targetData)
+function getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
 
     # Instantiate output
     postProb = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-        [OrderedDict(populations .=> [Vector{Union{Missing,Float64}}(missing, length(haplotypeLibrary)) for i in 1:length(populations)]) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
+        [OrderedDict(populations .=> [Vector{Union{Missing,Float64}}(missing, nHaplotypeBlocks) for i in 1:length(populations)]) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
 
     if predictType == "Naive Bayes"
         predictNaiveBayes!(postProb, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel)
