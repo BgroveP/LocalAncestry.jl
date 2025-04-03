@@ -24,7 +24,7 @@ end
 
 rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0) = (first(rObject)+firstInc-firstDec):(last(rObject)+lastInc-lastDec)
 
-function count_tokens_T_in_class(X, t)
+function countThisHaploNumber(X, t)
     count = 0
     for x in eachrow(X)
         if all(x .== t)
