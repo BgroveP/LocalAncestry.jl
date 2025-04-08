@@ -48,8 +48,8 @@ function evaluate2(classes, map_path, true_origins, library, probs, chromosome, 
 
     if haplotype > 0
         individuals_with_both = individuals_with_both[findall(occursin("_hap$haplotype", i) for i in individuals_with_both)]
-        indices_in_both = [findfirst(ind .== individuals_with_true) for ind in individuals_with_both]
     end
+    indices_in_both = [findfirst(ind .== individuals_with_true) for ind in individuals_with_both]
 
     x = DataFrame(block=string.(keys(library)),
         size=length.(keys(library)),
@@ -103,5 +103,47 @@ function evaluate2(classes, map_path, true_origins, library, probs, chromosome, 
         end
     end
 
+    return x
+end
+
+
+# Evaluate
+function evaluatePerLocus(classes, map_path, true_origins, library, probs, chromosome, haplotype=0, minProb=0.0)
+    individuals = unique(replace.(string.(keys(classes)), r"_hap.$" => ""))
+    trueO, trueI = ARV.readTrue(true_origins, map_path, chromosome, individuals)
+    popDict = Dict{String,Int}("holstein" => 1, "jersey" => 2, "reddairy" => 3)
+
+    individuals_with_predictions = string.(keys(classes))
+    individuals_with_true = string.(trueI) .* "_hap" .* repeat(string.(1:2), outer=Int(size(trueI, 1) / 2))
+
+    individuals_with_both = intersect(individuals_with_true, individuals_with_predictions)
+
+    # Print if some animals not present
+    if length(individuals_with_both) != length(individuals_with_predictions)
+        println(string(length(individuals_with_both) - length(individuals_with_predictions)) * " individuals with predictions not in reference!")
+    end
+
+    if haplotype > 0
+        individuals_with_both = individuals_with_both[findall(occursin("_hap$haplotype", i) for i in individuals_with_both)]
+    end
+    indices_in_both = [findfirst(ind .== individuals_with_true) for ind in individuals_with_both]
+
+    x = DataFrame(locus=1:size(trueO, 2),
+        correct=0.0,
+        incorrect=0.0,
+        unassigned=0.0
+        )
+    
+    # Overall accuracy
+    divisor = size(individuals_with_both, 1)
+    for (j, r) in enumerate(keys(library))
+        for (i, ind) in enumerate(individuals_with_both)
+                for l in r
+                    x.correct[l] += sum(trueO[indices_in_both[i], l] == popDict[classes[ind][j]]) / divisor
+                    x.unassigned[l] += ismissing(classes[ind][j]) / divisor
+                end
+        end
+    end
+    x.incorrect .= 1 .- (x.correct .+ x.unassigned)
     return x
 end
