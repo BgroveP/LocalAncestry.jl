@@ -1,18 +1,18 @@
-using ARV
+import LocalAncestry as NBLA
 using CSV
 using Tables
 using Test
 
 # Test of read functions such as readVCF 
 include("testobjects.jl")
-@testset verbose = true "ARV.jl" begin
+@testset verbose = true "Package" begin
     @testset verbose = true "IO" begin
         @testset "vcf" begin
             for c in 1:2
                 mktempdir() do temp_dir
                     temp_file_path = joinpath(temp_dir, "test.vcf")
                     write(temp_file_path, referencevcf)
-                    result, _ = ARV.readVCF(temp_file_path, c)
+                    result, _ = NBLA.readVCF(temp_file_path, c)
                     @test all(result .== referencehaplotypes[c])
                 end
             end
@@ -26,7 +26,7 @@ include("testobjects.jl")
     #    @testset "Same" begin
     #        for (i, p) in enumerate(populations)
     #            pop_subset = collect('a':p)
-    #            tmp = ARV.makePriors(pop_subset, individuals, [])
+    #            tmp = makePriors(pop_subset, individuals, [])
     #            combined_vector = [v for v in values(tmp[i]) for k in pop_subset for i in individuals]
     #            @test all(combined_vector .== log(1 / i))
     #        end
@@ -38,7 +38,7 @@ include("testobjects.jl")
     @testset verbose = true "Library" begin
         @testset "Overall" begin
             for (i, c) in enumerate(criteria)
-                x, _ = ARV.getHaploBlocks(1, 1, c, haplotypes, popDict, 1)
+                x, _ = NBLA.getHaploBlocks(1, 1, c, haplotypes, popDict, 1)
                 @test expectedOutputLibraryOverall[i] == x
             end
         end
@@ -48,7 +48,7 @@ include("testobjects.jl")
                 for (i, c) in enumerate(criteria)
                     for k in keys(expectedOutputLibraryOverall[i])
                         if (k[1] + 1 < 6)
-                            tmpkey, tmpdata = ARV.haploSearch(1, 1, c, haplotypes, k[1], popDict)
+                            tmpkey, tmpdata = NBLA.haploSearch(1, 1, c, haplotypes, k[1], popDict)
                             @test tmpkey == k
                         end
                     end
@@ -58,7 +58,7 @@ include("testobjects.jl")
                 for (i, c) in enumerate(criteria)
                     for k in keys(expectedOutputLibraryOverall[i])
                         if (k[1] + 1 < 6)
-                            tmpkey, tmpdata = ARV.haploSearch(1, 1, c, haplotypes, k[1], popDict)
+                            tmpkey, tmpdata = NBLA.haploSearch(1, 1, c, haplotypes, k[1], popDict)
                             @test tmpdata == expectedOutputLibraryOverall[i][k]
                         end
                     end

@@ -99,7 +99,7 @@ end
 function forwardsHMM(targetData, blocks, LL, thisRow, populations, emission_matrix, transition_matrix, initialStateProbs, forward)
     # forward
     for (b, r) in enumerate(blocks)
-        r = ARV.rangeFromString(r)
+        r = rangeFromString(r)
         thisb = targetData[thisRow, r]
         # Emission matrix
         if in(thisb, keys(LL[r]))
@@ -127,7 +127,7 @@ end
 function backwardsHMM(targetData, blocks, LL, thisRow, populations, emission_matrix, transition_matrix, initialStateProbs, backwards, numberOfBlocks)
             # Backwards
             for (b, r) in enumerate(reverse(blocks))
-                r = ARV.rangeFromString(r)
+                r = rangeFromString(r)
                 thisb = targetData[thisRow, r]
 
                 # Emission matrix

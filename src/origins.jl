@@ -4,12 +4,12 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
 
 
     ## Read haplotype data
-    referenceData, referenceIndividuals = ARV.readVCF(reference_path, chromosome)
-    targetData, targetIndividuals = ARV.readVCF(target_path, chromosome)
+    referenceData, referenceIndividuals = readVCF(reference_path, chromosome)
+    targetData, targetIndividuals = readVCF(target_path, chromosome)
     referenceOriginsVector = haplotypeOrigins(referenceIndividuals, referenceOrigins)
 
     # Get population information
-    populations = getPopulations(referenceOriginsVector)
+    populations = unique(referenceOriginsVector)
     popDict = getPopulationDictionary(referenceOriginsVector)
 
     # Get haplotype library

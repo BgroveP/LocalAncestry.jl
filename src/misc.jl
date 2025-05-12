@@ -16,9 +16,15 @@ function vvToV(x)
 end
 
 
-function haplotypeOrigins(i, o)
+function haplotypeOrigins(i::Vector{String}, o::DataFrames.DataFrame)
     x = DataFrames.DataFrame(individual=repeat(i, inner=2))
-    return string.(DataFrames.leftjoin(x, o, on="individual")[!, "population"])
+    y = string.(DataFrames.leftjoin(x, o, on="individual")[!, "population"])
+    
+    # Asserts
+    assertVector(y, "The vector with origins of reference individuals")
+    
+    # Return
+    return y
 end
 
 
@@ -95,11 +101,6 @@ function rangeFromString(x)
     return range
 end
 
-
-function getPopulations(x::Vector{String})::Vector{String}
-    return unique(x)
-end
-
 function getPopulationDictionary(x)
     y = Dict{String,Vector{Int64}}()
     for i in unique(x)
@@ -131,7 +132,7 @@ end
 function calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
     LL = OrderedDict()
     for (region, Haplo) in haplotypeLibrary
-        LL[region] = ARV.getLL(region, Haplo, referenceData, popDict)
+        LL[region] = getLL(region, Haplo, referenceData, popDict)
     end
 
     return LL
