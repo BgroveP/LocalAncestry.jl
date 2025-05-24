@@ -40,8 +40,10 @@ function returnPrior(prior, priorLevel, individual, haplotype, region)
         x = prior[individual]
     elseif priorLevel == "haplotype"
         x = prior[individual*"_hap"*string(haplotype)]
+    elseif priorLevel == "block"
+        x = prior[individual*"_hap"*string(haplotype)*"_reg"*string(region)]
     else
-        throw(DomainError(priorLevel, "Expected 'individual', or 'haplotype'"))
+        throw(DomainError(priorLevel, "Expected 'individual', 'haplotype', or 'block'"))
     end
     return x
 end

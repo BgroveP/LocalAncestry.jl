@@ -114,7 +114,7 @@ function alleleFrequencies(x, y)
     p = zeros(Float32, size(x, 2), length(pops))
     for (j, pop) in enumerate(pops)
         rows = findall(pop .== y)
-        p[:, j] = mean(x[rows, :], dims=1)
+        p[:, j] = Statistics.mean(x[rows, :], dims=1)
     end
 
     return p

@@ -60,7 +60,7 @@ end
 
 # Main function for constrained genomic regression (CGR)
 function priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, certainty)
-    n = "haplotype"
+    n = "block"
     populations = getPopulations(referenceOriginsVector)
     p = alleleFrequencies(referenceData, referenceOriginsVector)
 
