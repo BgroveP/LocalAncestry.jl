@@ -16,7 +16,7 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
     haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(minHaploSize, incHaploSize, haploCrit, referenceData, popDict, 1)
 
     # Get priors
-    priorProb, priorLevel = getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors)
+    priorProb, priorLevel = getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors, haplotypeLibrary, ploidity)
 
     # Get log-likelihoods
     LL = calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
@@ -28,18 +28,19 @@ function origins(chromosome, reference_path, target_path, referenceOrigins, orig
     return postProb, postClass, haplotypeLibrary
 end
 
-function getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors)
+function getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors, haplotypeLibrary, ploidity)
 
     if originPriors == "flat"
         x, n = priorsFlat(referenceOriginsVector, targetIndividuals)
     elseif originPriors[1:3] == "CGR"
-        x, n = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, originPriors)
+        x, n = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, originPriors, haplotypeLibrary, ploidity)
     else
         throw(DomainError(originPriors, "Expected 'flat' or 'CGR'"))
     end
 
     return x, n
 end
+
 
 function getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
 

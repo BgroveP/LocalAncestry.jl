@@ -6,7 +6,7 @@ function predictNaiveBayes!(postProb, targetData, targetIndividuals, ploidity, L
         for h in 1:ploidity
             idname = id * "_hap" * string(h)
             for (r, reg) in enumerate(keys(LL))
-                thisprior = returnPrior(priorProb, priorLevel, id, h, r)
+                thisprior = returnPrior(priorProb, priorLevel, id, h, reg)
                 z = targetData[2*i+h-2, reg]
                 if in(z, keys(LL[reg]))
                     tmpdict = naive_bayes_predict2(thisprior, LL[reg][z], populations)
