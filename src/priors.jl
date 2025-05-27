@@ -59,7 +59,7 @@ function priorsFlat(C, I)
 end
 
 # Main function for constrained genomic regression (CGR)
-function priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, certainty)
+function priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, certainty, haplotypeLibrary, ploidity)
     n = "block"
     populations = getPopulations(referenceOriginsVector)
     p = alleleFrequencies(referenceData, referenceOriginsVector)
@@ -68,10 +68,11 @@ function priorsCGR(referenceData, targetData, targetIndividuals, referenceOrigin
     opt = optimizerCGR(populations)
     priors = repeat([1 ./ length(populations)], length(populations))
 
-    out = performCGR(targetData, targetIndividuals, ploidity, opt, priors, certainty)
+    out = performCGR(targetData, targetIndividuals, ploidity, opt, priors, certainty, haplotypeLibrary, p, populations)
 
     return out, n
 end
+
 
 # Support function for CGR
 function optimizerCGR(x::Vector{String})
@@ -79,7 +80,7 @@ function optimizerCGR(x::Vector{String})
     o = NLopt.Opt(:LN_COBYLA, n)
     lower_bounds!(o, zeros(Float64, n))
     NLopt.equality_constraint!(o, (x, g) -> constraintCGR(x, g), 1e-8)
-    maxeval!(o, 1000)
+    maxeval!(o, 3000)
     return o
 end
 
@@ -99,36 +100,64 @@ function constraintCGR(x::Vector, grad::Vector)
     return sum(x) - 1
 end
 
-function certaintyScaleCGR(certainty, min_x, min_f, populations, priors)
-    
-    if certainty == "CGRfull"
-        min_x = max.(log.(min_x), repeat([-10^10], length(populations)))
-    elseif certainty == "CGR"
-        min_x = max.(log.(min_f .* priors .+ (1 - min_f) .* min_x), repeat([-10^10], length(populations)))
+function certaintyScaleCGR(certainty, min_x, min_f, populations, priors, p, r, x)
+        npop = size(p,2)
+        for i in 1:npop
+            x = x - p[r,i] ./ npop 
+        end
+        Freference = mean(x .* x)
+    if certainty == "CGR"
+        scalar = 1
+    elseif certainty == "CGRdet"
+        scalar = (det(cov2cor(transpose(p[r, :] .- 0.5) * (p[r, :] .- 0.5))))*(1-min_f)
+    elseif certainty == "CGRdetsqrt"
+        scalar = (det(cov2cor(transpose(p[r, :] .- 0.5) * (p[r, :] .- 0.5))))*sqrt(1-min_f)
+    elseif certainty == "CGRdetsqd"
+        scalar = (det(cov2cor(transpose(p[r, :] .- 0.5) * (p[r, :] .- 0.5))))*(1-min_f)^2
+    elseif certainty == "CGRFdet"
+        scalar = (det(cov2cor(transpose(p[r, :] .- 0.5) * (p[r, :] .- 0.5))))*(1-min_f/Freference)
+    elseif certainty == "CGRFdetsqrt"
+        scalar = (det(cov2cor(transpose(p[r, :] .- 0.5) * (p[r, :] .- 0.5))))*sqrt(1-min_f/Freference)
+    elseif certainty == "CGRFdetsqd"
+        scalar = (det(cov2cor(transpose(p[r, :] .- 0.5) * (p[r, :] .- 0.5))))*(1-min_f/Freference)^2
+    elseif certainty == "CGRfull"
+        scalar = 1-min_f
     elseif certainty == "CGRsqrt"
-        scalar = sqrt(min_f)
-        min_x = max.(log.(scalar .* priors .+ (1 - scalar) .* min_x), repeat([-10^10], length(populations)))
+        scalar = sqrt(1-min_f)
+    elseif certainty == "CGRF"
+        scalar = 1 - min_f/Freference
     else
-        throw(DomainError(certainty, "expects 'CGRfull' or 'CGR'"))
+        throw(DomainError(certainty, "expects 'CGR', 'CGRdet', 'CGRdetsqrt', 'CGRdetsqd', 'CGRfull', or 'CGRsqrt'"))
     end
 
-    return min_x
+    return max.(log.((1-scalar) .* priors .+ (scalar) .* min_x), repeat([-10^10], length(populations)))
 end
 
-function performCGR(targetData, targetIndividuals, ploidity, opt, priors, certainty)
+p = zeros(Float64, 6,3)
+
+
+function performCGR(targetData, targetIndividuals, ploidity, opt, priors, certainty, haplotypeLibrary, p, populations)
     out = Dict{String,Dict{String,Float64}}()
-    for (i, ind) in enumerate(targetIndividuals)
-        for h in 1:ploidity
-            outname = ind * "_hap" * string(h)
-            inindice = 2 * i + h - 2
-            y = (targetData')[:, inindice]
-            NLopt.min_objective!(opt, (x, g) -> objectiveCGR(x, g, y, p))
+    for r in keys(haplotypeLibrary)
+
+        blocks = unique(targetData[:,r], dims = 1)
+        for (ib, b) in enumerate(eachrow(blocks))
+            NLopt.min_objective!(opt, (x, g) -> objectiveCGR(x, g, blocks[ib,:], p[r, :]))
             min_f, min_x, _ = NLopt.optimize(opt, priors)
 
-            out[outname] = Dict(zip(populations, certaintyScaleCGR(certainty, min_x, min_f, populations, priors)))
+                blockmatch = [itb for (itb, tb) in enumerate(eachrow(targetData[:,r])) if all(b .== targetData[itb,r])] 
+                for bm in blockmatch
+                    ind = ceil( bm / ploidity) 
+                    h = bm - ind * ploidity + ploidity
+                outname = targetIndividuals[convert(Int64,ind)] * "_hap" * string(convert(Int8,h)) * "_reg" * string(r)
+                    
+                out[outname] = Dict(zip(populations, certaintyScaleCGR(certainty, min_x, min_f, populations, priors, p, r, blocks[ib,:])))
+                end
         end
     end
+
     return out
 end
+
 
 

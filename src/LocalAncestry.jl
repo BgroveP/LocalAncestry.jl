@@ -1,5 +1,5 @@
 module LocalAncestry
-using VariantCallFormat, CSV, DataFrames, OrderedCollections, Tables
+using VariantCallFormat, CSV, DataFrames, OrderedCollections, Tables, Statistics, NLopt, StatsBase, LinearAlgebra
 
 # Write your package code here.
 include("assignMissing.jl")

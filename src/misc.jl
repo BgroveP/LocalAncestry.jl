@@ -109,6 +109,10 @@ function getPopulationDictionary(x)
     return y
 end
 
+function getPopulations(x::Vector{String})::Vector{String}
+    return unique(x)
+end
+
 function alleleFrequencies(x, y)
     pops = getPopulations(y)
     p = zeros(Float32, size(x, 2), length(pops))
