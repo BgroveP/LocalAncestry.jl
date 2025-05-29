@@ -10,18 +10,16 @@ include("testobjects.jl")
     @testset verbose = true "IO" begin
         @testset "vcf" begin
             for c in 1:2
-                    # Read
-                    haplotypesVCF, individualsVCF = LocalAncestry.readVCF("data/reference.vcf", c)
-                    
-                    # Test individuals
-                    individualsControl = CSV.read("data/referenceindividuals.csv", DataFrame).individuals
-                    @test all(individualsVCF .== individualsControl)
-                    
-                    # Test haplotypes
-                    haplotypesControl = CSV.read("data/referencehaplotypes$(c).csv", Tables.matrix, header = false)
-                    @test all(haplotypesVCF .== haplotypesControl)
-
-                end
+                # Read
+                haplotypesVCF, individualsVCF = LocalAncestry.readVCF("data/reference.vcf", c)
+                
+                # Test individuals
+                individualsControl = CSV.read("data/referenceindividuals.csv", DataFrame).individuals
+                @test all(individualsVCF .== individualsControl)
+                
+                # Test haplotypes
+                haplotypesControl = CSV.read("data/referencehaplotypes$(c).csv", Tables.matrix, header = false)
+                @test all(haplotypesVCF .== haplotypesControl)
             end
         end
     end
