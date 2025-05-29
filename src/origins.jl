@@ -1,41 +1,63 @@
+"""
+    inference(chromosome, referenceVCF, targetVCF, referenceAncestries, priorsMethod, minBlockSize, incrBlockSize, blockCrit, minNBCProb)
 
+# Arguments
+- `chromosome::Int64`: The focal chromosome.
+- `referenceVCF::String`: The relative path to .vcf file with phased genotypes of reference individuals.
+- `targetVCF::String`: The relative path to .vcf file with phased genotypes of target individuals.
+- `referenceAncestries::DataFrame`: Two-column (["individual", "ancestry"]) DataFrame with ancestries of reference individuals.
+- `priorsMethod::String`: The method for calculating priors for the Naive Bayes Classification step (flat, CGR). We recommend flat priors for now.
+- `minBlockSize::Int64`: The minimal size of haplotype blocks.
+- `incrBlockSize::Int64`: The incremental size of haplotype blocks.
+- `blockCrit::Float64`: The stopping criterion for building haplotype blocks. Smaller values provide larger haplotype blocks.
+- `minNBCProb::Float64`: The lower threshold for posterior probabilities. Posterior probabilities above this threshold is assigned with the Naive Bayes Classification step, while those below the threshold will be assigned with the Hidden Markov step. 
 
-function origins(chromosome, reference_path, target_path, referenceOrigins, originPriors, minHaploSize, incHaploSize, haploCrit, ploidity, minProb; assignType="probonly", predictType="Naive Bayes", probStayState=0.9)
+# Returns postProb, postClass, haplotypeLibrary
+- `postProb::Dict()`: The area of the rectangle.
+- `postClass::Dict()`: The area of the rectangle.
+- `haplotypeLibrary::Dict()`: The area of the rectangle.
 
+# Examples
+
+"""
+function inference(chromosome, referenceVCF, targetVCF, referenceAncestries, priorsMethod, minBlockSize, incrBlockSize, blockCrit, minNBCProb)
+
+    # Constants
+    ploidity = 2
 
     ## Read haplotype data
-    referenceData, referenceIndividuals = readVCF(reference_path, chromosome)
-    targetData, targetIndividuals = readVCF(target_path, chromosome)
-    referenceOriginsVector = haplotypeOrigins(referenceIndividuals, referenceOrigins)
+    referenceData, referenceIndividuals = readVCF(referenceVCF, chromosome)
+    targetData, targetIndividuals = readVCF(targetVCF, chromosome)
+    referenceAncestriesVector = haplotypeOrigins(referenceIndividuals, referenceAncestries)
 
     # Get population information
-    populations = unique(referenceOriginsVector)
-    popDict = getPopulationDictionary(referenceOriginsVector)
+    populations = unique(referenceAncestriesVector)
+    popDict = getPopulationDictionary(referenceAncestriesVector)
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(minHaploSize, incHaploSize, haploCrit, referenceData, popDict, 1)
+    haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1)
 
     # Get priors
-    priorProb, priorLevel = getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors)
+    priorProb, priorLevel = getPriors(referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod)
 
     # Get log-likelihoods
     LL = calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
 
     # predict
     postProb = getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
-    postClass = getAssignments(assignType, postProb, populations, LL, minProb, targetIndividuals, ploidity, haplotypeLibrary)
+    postClass = getAssignments(assignType, postProb, populations, LL, minNBCProb, targetIndividuals, ploidity, haplotypeLibrary)
 
     return postProb, postClass, haplotypeLibrary
 end
 
-function getPriors(referenceOriginsVector, referenceData, targetIndividuals, targetData, originPriors)
+function getPriors(referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod)
 
-    if originPriors == "flat"
-        x, n = priorsFlat(referenceOriginsVector, targetIndividuals)
-    elseif originPriors[1:3] == "CGR"
-        x, n = priorsCGR(referenceData, targetData, targetIndividuals, referenceOriginsVector, originPriors)
+    if priorsMethod == "flat"
+        x, n = priorsFlat(referenceAncestriesVector, targetIndividuals)
+    elseif priorsMethod[1:3] == "CGR"
+        x, n = priorsCGR(referenceData, targetData, targetIndividuals, referenceAncestriesVector, priorsMethod)
     else
-        throw(DomainError(originPriors, "Expected 'flat' or 'CGR'"))
+        throw(DomainError(priorsMethod, "Expected 'flat' or 'CGR'"))
     end
 
     return x, n
@@ -57,14 +79,14 @@ function getProbabilities(predictType, targetIndividuals, ploidity, LL, populati
     return postProb
 end
 
-function getAssignments(assignType, postProb, populations, LL, minProb, targetIndividuals, ploidity, haplotypeLibrary)
+function getAssignments(assignType, postProb, populations, LL, minNBCProb, targetIndividuals, ploidity, haplotypeLibrary)
 
     # Instantiate output
     postClass = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
         [Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
 
     # Assign certain blocks
-    assignCertain!(postClass, postProb, populations, LL, minProb)
+    assignCertain!(postClass, postProb, populations, LL, minNBCProb)
 
     # Assign the rest
     if assignType == "none"
