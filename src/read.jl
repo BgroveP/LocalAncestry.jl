@@ -2,56 +2,68 @@ function getVCFrows(file, c)
     # Initialize
     record = VCF.Record()
     loci::Int64 = 0
-    foundLargerChromosome = false
-    this_chromosome = string(c)
-    next_chromosome = string(c + 1)
-    
-    # Open file
+    foundFocalChromosome = false
+    this_chromosome = [string(c), "chr" * string(c)]
     reader = VCF.Reader(open(file, "r"))
 
-    while !(eof(reader) | foundLargerChromosome)
-        record = read!(reader, record)
+    while !eof(reader)
+        try
+            read!(reader, record)
+        catch e
+            break
+        end
         recordChromosome = VCF.chrom(record)
 
-        if recordChromosome == this_chromosome
+        if any(recordChromosome .== this_chromosome)
             loci += 1
-        end
-        if recordChromosome == next_chromosome
-            foundLargerChromosome = true
+            if !foundFocalChromosome
+                foundFocalChromosome = true
+            end
+        else
+            if foundFocalChromosome
+                break
+            end
         end
     end
+
+    close(reader)
 
     return loci
 end
 
 function getVCFdata(f, c, l, n)
-    
+
     # Initialize
     x = zeros(Int8, 2 * n, l)
-    this_chromosome = string(c)
-    next_chromosome = string(c + 1)
+    this_chromosome = [string(c), "chr" * string(c)]
+    foundFocalChromosome = false
     record = VCF.Record()
     xRows = sort([collect(3:3:(3*n)); collect(1:3:(3*n))])
     i = 0
-    foundLargerChromosome = false
-    recordChromosome = 0
     dict_record = Dict{UInt8,UInt8}(0x30 => 0, 0x31 => 1, 0x7c => 0)
-
-    # Open the .vcf file
     reader = VCF.Reader(open(f, "r"))
 
-    while !(eof(reader) | foundLargerChromosome)
-        record = read!(reader, record)
+    while !eof(reader)
+        try
+            read!(reader, record)
+        catch e
+            break
+        end
         recordChromosome = VCF.chrom(record)
 
-        if recordChromosome .== this_chromosome
+        if any(recordChromosome .== this_chromosome)
             i += 1
             x[:, i] = Int8.(get.([dict_record], record.data[vvToV(record.genotype)][xRows], 2))
-        end
-        if recordChromosome .== next_chromosome
-            foundLargerChromosome = true
+            if !foundFocalChromosome
+                foundFocalChromosome = true
+            end
+        else
+            if foundFocalChromosome
+                break
+            end
         end
     end
+    close(reader)
     return x
 end
 
@@ -63,16 +75,16 @@ function getVCFindividuals(f)::Vector{String}
 end
 
 function readVCF(file::String, chromosome::Int64)
-    
+
     # Checks
     assertFile(file, ".vcf")
-    assertPositiveInteger(chromosome, errormessage = "chromosome was $(chromosome), but should be an integer larger than zero")
+    assertPositiveInteger(chromosome, errormessage="chromosome was $(chromosome), but should be an integer larger than zero")
 
     # Get the number of loci from the focal chromosome
     individuals = getVCFindividuals(file)
     loci = getVCFrows(file, chromosome)
     x = getVCFdata(file, chromosome, loci, length(individuals))
-    
+
     return x, individuals
 end
 

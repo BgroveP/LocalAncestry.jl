@@ -1,0 +1,27 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,length=40>
+##bcftools_mergeVersion=1.11+htslib-1.11
+##bcftools_mergeCommand=merge -o data/vcf/smallcattle_reference_all_replicate1.vcf.gz -O z data/vcf/smallcattle_reference_holstein_replicate1.vcf.gz data/vcf/smallcattle_reference_jersey_replicate1.vcf.gz data/vcf/smallcattle_reference_reddairy_replicate1.vcf.gz; Date=Fri Feb 14 12:40:10 2025
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	individual4	individual5	individual6
+chr1	1	locus1	A	G	.	.	.	GT	1|0	1/0	1|0
+chr1	10	locus2	A	G	.	.	.	GT	0|1	0/0	1|0
+chr1	20	locus3	A	G	.	.	.	GT	1|0	0/1	1|0
+chr1	30	locus4	A	G	.	.	.	GT	0|1	1/0	1|0
+chr1	40	locus5	A	G	.	.	.	GT	1|0	0/0	1|0
+chr1	50	locus6	A	G	.	.	.	GT	0|1	0/1	1|0
+chr1	60	locus7	A	G	.	.	.	GT	1|0	1/0	1|0
+chr1	70	locus8	A	G	.	.	.	GT	0|1	0/0	1|0
+chr1	80	locus9	A	G	.	.	.	GT	1|0	0/1	1|0
+chr1	100	locus10	A	G	.	.	.	GT	0|1	1/0	1|0
+chr2	1	locus11	A	G	.	.	.	GT	1|0	0/0	1|0
+chr2	10	locus12	A	G	.	.	.	GT	0|1	0/1	1|0
+chr2	20	locus13	A	G	.	.	.	GT	1|0	1/0	1|0
+chr2	30	locus14	A	G	.	.	.	GT	0|1	0/0	1|0
+chr2	40	locus15	A	G	.	.	.	GT	1|0	0/1	1|0
+chr2	50	locus16	A	G	.	.	.	GT	0|1	1/0	1|0
+chr2	60	locus17	A	G	.	.	.	GT	1|0	0/0	1|0
+chr2	70	locus18	A	G	.	.	.	GT	0|1	0/1	1|0
+chr2	80	locus19	A	G	.	.	.	GT	1|0	1/0	1|0
+chr2	100	locus20	A	G	.	.	.	GT	0|1	0/0	1|0

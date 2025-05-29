@@ -1,11 +1,18 @@
 """
-    getLocalAncestry(chromosome, referenceVCF, targetVCF, referenceAncestries; priorsMethod = "flat", minBlockSize = 5, incrBlockSize = 1, blockCrit = 0.2, minNBCProb = 0.95)
-
+    getLocalAncestries(chromosome::Union{Int64,String}, 
+                          referenceVCF::String, 
+                          targetVCF::String, 
+                          referenceAncestries::DataFrame; 
+                          priorsMethod::String = "flat", 
+                          minBlockSize::Int64 = 5, 
+                          incrBlockSize::Int64 = 1, 
+                          blockCrit::Float64 = 0.2, 
+                          minNBCProb::Float64 = 0.95)
 # Purpose
 This function infers local ancestries. It is meant as a one-function interface to the entire inference process. 
 
 # Arguments
-- `chromosome::Int64`: The focal chromosome.
+- `chromosome::Union{Int64, String}`: The focal chromosome. Autosomal chromosomes can be denoted by their number as e.g.: 1, "1", or "chr1".
 - `referenceVCF::String`: The relative path to .vcf file with phased genotypes of reference individuals.
 - `targetVCF::String`: The relative path to .vcf file with phased genotypes of target individuals.
 - `referenceAncestries::DataFrame`: Two-column (["individual", "ancestry"]) DataFrame with ancestries of reference individuals.
@@ -21,34 +28,43 @@ This function infers local ancestries. It is meant as a one-function interface t
 - `haplotypeLibrary::OrderedDict{}`: The area of the rectangle.
 
 """
-function getLocalAncestry(chromosome, referenceVCF, targetVCF, referenceAncestries; priorsMethod = "flat", minBlockSize = 5, incrBlockSize = 1, blockCrit = 0.2, minNBCProb = 0.95)
+function getLocalAncestries(chromosome::Union{Int64,String}, 
+                          referenceVCF::String, 
+                          targetVCF::String, 
+                          referenceAncestries::DataFrame; 
+                          priorsMethod::String = "flat", 
+                          minBlockSize::Int64 = 5, 
+                          incrBlockSize::Int64 = 1, 
+                          blockCrit::Float64 = 0.2, 
+                          minNBCProb::Float64 = 0.95)
 
     # Constants
     ploidity = 2
-    predictType = "probonly"
+    predictType = "Naive Bayes"
     assignType = "Hidden Markov"
+    probStayState = 0.99
 
     ## Read haplotype data
-    referenceData, referenceIndividuals = readVCF(referenceVCF, chromosome)
-    targetData, targetIndividuals = readVCF(targetVCF, chromosome)
-    referenceAncestriesVector = haplotypeOrigins(referenceIndividuals, referenceAncestries)
+    referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
+    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
+    referenceAncestriesVector = LocalAncestry.haplotypeOrigins(referenceIndividuals, referenceAncestries)
 
     # Get population information
     populations = unique(referenceAncestriesVector)
-    popDict = getPopulationDictionary(referenceAncestriesVector)
+    popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1)
+    haplotypeLibrary, nHaplotypeBlocks = LocalAncestry.getHaploBlocks(minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1)
 
     # Get priors
-    priorProb, priorLevel = getPriors(referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod)
+    priorProb, priorLevel = LocalAncestry.getPriors(referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod)
 
     # Get log-likelihoods
-    LL = calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
+    LL = LocalAncestry.calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
 
     # predict
-    postProb = getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
-    postClass = getAssignments(assignType, postProb, populations, LL, minNBCProb, targetIndividuals, ploidity, haplotypeLibrary)
+    postProb = LocalAncestry.getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
+    postClass = LocalAncestry.getAssignments(assignType, postProb, populations, LL, minNBCProb, targetIndividuals, ploidity, haplotypeLibrary)
 
     return postProb, postClass, haplotypeLibrary
 end

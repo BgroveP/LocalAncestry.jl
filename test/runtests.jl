@@ -4,72 +4,66 @@ using Tables
 using Test
 using DataFrames
 
-# Test of read functions
-include("testobjects.jl")
-@testset verbose = true "Package" begin
-    @testset verbose = true "IO" begin
-        @testset "vcf" begin
-            for c in 1:2
-                # Read
-                haplotypesVCF, individualsVCF = LocalAncestry.readVCF("data/reference.vcf", c)
-                
-                # Test individuals
-                individualsControl = CSV.read("data/referenceindividuals.csv", DataFrame).individuals
-                @test all(individualsVCF .== individualsControl)
-                
-                # Test haplotypes
-                haplotypesControl = CSV.read("data/referencehaplotypes$(c).csv", Tables.matrix, header = false)
-                @test all(haplotypesVCF .== haplotypesControl)
+# Full
+printstyled("Testing the interface\n"; color=:blue)
+ra = DataFrame(individual="individual" .* string.([1, 2, 3]), population=["a", "b", "c"])
+@testset verbose = true "Interface" begin
+    @testset verbose = true "big blocks" begin
+        # Read
+        for c in 1:2
+            postProb, postClass, haplotypeLibrary = getLocalAncestries(c, "data/reference.vcf", "data/target.vcf", ra)
+
+
+            ancestryControl = CSV.read("data/targetancestries.csv", DataFrame)
+            for (j, i) in enumerate(ancestryControl.individual), h in 1:2
+                name = i * "_hap" * string(h)
+
+                ancestryVector = postClass[name]
+                for k in ancestryVector
+                    @test k == ancestryControl.population[j]
+                end
             end
         end
     end
-
-    # Test of function that constructs dictionary of priors
-    #populations = 'a':'z'
-    #individuals = collect(1:100)
-    #@testset verbose = true "Priors" begin
-    #    @testset "Same" begin
-    #        for (i, p) in enumerate(populations)
-    #            pop_subset = collect('a':p)
-    #            tmp = makePriors(pop_subset, individuals, [])
-    #            combined_vector = [v for v in values(tmp[i]) for k in pop_subset for i in individuals]
-    #            @test all(combined_vector .== log(1 / i))
-    #        end
-    #    end
-    #end
+    # Read
+    @testset verbose = true "small blocks" begin
+        for c in 1:2
+            postProb, postClass, haplotypeLibrary = getLocalAncestries(c, "data/reference.vcf", "data/target.vcf", ra, minBlockSize=1, blockCrit = 0.2)
 
 
-    # Test of function that constructs haplotypes library
-    @testset verbose = true "Library" begin
-        @testset "Overall" begin
-            for (i, c) in enumerate(criteria)
-                x, _ = NBLA.getHaploBlocks(1, 1, c, haplotypes, popDict, 1)
-                @test expectedOutputLibraryOverall[i] == x
-            end
-        end
+            ancestryControl = CSV.read("data/targetancestries.csv", DataFrame)
+            for (j, i) in enumerate(ancestryControl.individual), h in 1:2
+                name = i * "_hap" * string(h)
 
-        @testset verbose = true "Search" begin
-            @testset "Key" begin
-                for (i, c) in enumerate(criteria)
-                    for k in keys(expectedOutputLibraryOverall[i])
-                        if (k[1] + 1 < 6)
-                            tmpkey, tmpdata = NBLA.haploSearch(1, 1, c, haplotypes, k[1], popDict)
-                            @test tmpkey == k
-                        end
-                    end
-                end
-            end
-            @testset verbose = true "Haplotypes" begin
-                for (i, c) in enumerate(criteria)
-                    for k in keys(expectedOutputLibraryOverall[i])
-                        if (k[1] + 1 < 6)
-                            tmpkey, tmpdata = NBLA.haploSearch(1, 1, c, haplotypes, k[1], popDict)
-                            @test tmpdata == expectedOutputLibraryOverall[i][k]
-                        end
-                    end
+                ancestryVector = postClass[name]
+                for k in ancestryVector
+                    @test k == ancestryControl.population[j]
                 end
             end
         end
-        @testset verbose = true "Informativeness" begin end
     end
 end
+
+# Read function
+printstyled("\n\nTesting the read function\n"; color=:blue)
+@testset verbose = true "Read .vcf files" begin
+    @testset "individuals" begin
+        # Read
+        _, individualsVCF = LocalAncestry.readVCF("data/reference.vcf", 1)
+        individualsControl = CSV.read("data/referenceindividuals.csv", DataFrame).individuals
+        @test all(individualsVCF .== individualsControl)
+
+    end
+
+    @testset "haplotypes" begin
+        for c in 1:2
+            # Read
+            haplotypesVCF, _ = LocalAncestry.readVCF("data/reference.vcf", c)
+
+            # Test haplotypes
+            haplotypesControl = CSV.read("data/referencehaplotypes$(c).csv", Tables.matrix, header=false)
+            @test all(haplotypesVCF .== haplotypesControl)
+        end
+    end
+end
+
