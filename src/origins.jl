@@ -1,5 +1,8 @@
 """
-    inference(chromosome, referenceVCF, targetVCF, referenceAncestries, priorsMethod, minBlockSize, incrBlockSize, blockCrit, minNBCProb)
+    getLocalAncestry(chromosome, referenceVCF, targetVCF, referenceAncestries; priorsMethod = "flat", minBlockSize = 5, incrBlockSize = 1, blockCrit = 0.2, minNBCProb = 0.95)
+
+# Purpose
+This function infers local ancestries. It is meant as a one-function interface to the entire inference process. 
 
 # Arguments
 - `chromosome::Int64`: The focal chromosome.
@@ -12,18 +15,18 @@
 - `blockCrit::Float64`: The stopping criterion for building haplotype blocks. Smaller values provide larger haplotype blocks.
 - `minNBCProb::Float64`: The lower threshold for posterior probabilities. Posterior probabilities above this threshold is assigned with the Naive Bayes Classification step, while those below the threshold will be assigned with the Hidden Markov step. 
 
-# Returns postProb, postClass, haplotypeLibrary
-- `postProb::Dict()`: The area of the rectangle.
-- `postClass::Dict()`: The area of the rectangle.
-- `haplotypeLibrary::Dict()`: The area of the rectangle.
-
-# Examples
+# Returns
+- `postProb::OrderedDict{String, Vector{OrderedDict{String, Float64}}}`: The area of the rectangle.
+- `postClass::OrderedDict{String, Vector{String}}`: The area of the rectangle.
+- `haplotypeLibrary::OrderedDict{}`: The area of the rectangle.
 
 """
-function inference(chromosome, referenceVCF, targetVCF, referenceAncestries, priorsMethod, minBlockSize, incrBlockSize, blockCrit, minNBCProb)
+function getLocalAncestry(chromosome, referenceVCF, targetVCF, referenceAncestries; priorsMethod = "flat", minBlockSize = 5, incrBlockSize = 1, blockCrit = 0.2, minNBCProb = 0.95)
 
     # Constants
     ploidity = 2
+    predictType = "probonly"
+    assignType = "Hidden Markov"
 
     ## Read haplotype data
     referenceData, referenceIndividuals = readVCF(referenceVCF, chromosome)

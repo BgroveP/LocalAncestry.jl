@@ -1,19 +1,26 @@
-import LocalAncestry as NBLA
 using CSV
+using LocalAncestry
 using Tables
 using Test
+using DataFrames
 
-# Test of read functions such as readVCF 
+# Test of read functions
 include("testobjects.jl")
 @testset verbose = true "Package" begin
     @testset verbose = true "IO" begin
         @testset "vcf" begin
             for c in 1:2
-                mktempdir() do temp_dir
-                    temp_file_path = joinpath(temp_dir, "test.vcf")
-                    write(temp_file_path, referencevcf)
-                    result, _ = NBLA.readVCF(temp_file_path, c)
-                    @test all(result .== referencehaplotypes[c])
+                    # Read
+                    haplotypesVCF, individualsVCF = LocalAncestry.readVCF("data/reference.vcf", c)
+                    
+                    # Test individuals
+                    individualsControl = CSV.read("data/referenceindividuals.csv", DataFrame).individuals
+                    @test all(individualsVCF .== individualsControl)
+                    
+                    # Test haplotypes
+                    haplotypesControl = CSV.read("data/referencehaplotypes$(c).csv", Tables.matrix, header = false)
+                    @test all(haplotypesVCF .== haplotypesControl)
+
                 end
             end
         end

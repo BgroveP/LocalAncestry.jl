@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.4"
+julia_version = "1.11.5"
 manifest_format = "2.0"
 project_hash = "a9253a565efe51a67ebb838520be0933d9653bea"
 
@@ -260,7 +260,7 @@ version = "1.11.0"
 
 [[deps.LocalAncestry]]
 deps = ["CSV", "DataFrames", "OrderedCollections", "Tables", "VariantCallFormat"]
-path = "/usr/home/qgg/bgrovep/src/julia/ARV.jl"
+path = ".."
 uuid = "9c717bbe-74a8-4a1b-8702-c9261a6bba1a"
 version = "0.1.0"
 

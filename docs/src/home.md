@@ -1,9 +1,5 @@
 # LocalAncestry.jl: Local Ancestry Inference using a combination of Naive Bayes Classification and Hidden Markov Model assignment
 
-
-[![Build Status](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml?query=branch%3Amain)
-
-
 The aim of this package is to provide the users with an accurate, fast, and accessible means of inferring local ancestries. The current version of the inference approach is set apart from existing local ancestry software by allowing for varying window sizes across the chromosome, and by using both Naive Bayes Classification and Hidden Markov Models for assign local ancestries.
 
 **Local Ancestry Inference:** Local Ancestry Inference is the prediction of ancestry for each combination of single nucleotide polymorphism and individual. The contrast is Global Ancestry Inference, which is the prediction of ancestral proportions at the individual level.

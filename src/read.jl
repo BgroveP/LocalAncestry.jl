@@ -9,7 +9,7 @@ function getVCFrows(file, c)
     # Open file
     reader = VCF.Reader(open(file, "r"))
 
-    while !(eof(reader) | foundLargerChromosome)
+    while (!eof(reader) & !foundLargerChromosome)
         record = read!(reader, record)
         recordChromosome = VCF.chrom(record)
 
@@ -40,7 +40,7 @@ function getVCFdata(f, c, l, n)
     # Open the .vcf file
     reader = VCF.Reader(open(f, "r"))
 
-    while !(eof(reader) | foundLargerChromosome)
+    while (!eof(reader) & !foundLargerChromosome)
         record = read!(reader, record)
         recordChromosome = VCF.chrom(record)
 
