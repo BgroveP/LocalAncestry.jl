@@ -21,5 +21,5 @@ makedocs(
 # for more information.
 
 deploydocs(
-    repo = "github.com/BgroveP/LocalAncestry.jl"
+    repo = "github.com/BgroveP/LocalAncestry.jl.git"
 )

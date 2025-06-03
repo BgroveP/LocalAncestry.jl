@@ -1,6 +1,7 @@
 # LocalAncestry.jl: Local Ancestry Inference using a combination of Naive Bayes Classification and Hidden Markov Model assignment
 
 [![Build Status](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/BgroveP/ARV.jl/actions/workflows/documentation.yml/badge.svg?branch=main)](https://github.com/BgroveP/ARV.jl/actions/workflows/documentation.yml?query=branch%3Amain)
 
 The aim of this package is to provide the users with an accurate, fast, and accessible means of inferring local ancestries. 
 The package is set apart from existing local ancestry software by allowing for varying window sizes across the chromosome, and by using a combination of Naive Bayes Classification and Hidden Markov Models to assign local ancestries.
