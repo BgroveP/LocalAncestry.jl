@@ -23,9 +23,9 @@ This function infers local ancestries. It is meant as a one-function interface t
 - `minNBCProb::Float64`: The lower threshold for posterior probabilities. Posterior probabilities above this threshold is assigned with the Naive Bayes Classification step, while those below the threshold will be assigned with the Hidden Markov step. 
 
 # Returns
-- `postProb::OrderedDict{String, Vector{OrderedDict{String, Float64}}}`: The area of the rectangle.
-- `postClass::OrderedDict{String, Vector{String}}`: The area of the rectangle.
-- `haplotypeLibrary::OrderedDict{}`: The area of the rectangle.
+- `postProb::OrderedDict{String, Vector{OrderedDict{String, Float64}}}`: The posterior probabilities from the Naive Bayes step.
+- `postClass::OrderedDict{String, Vector{String}}`: The assigned populations after the Hidden Markov model step.
+- `haplotypeLibrary::OrderedDict{}`: The library of haplotype blocks.
 
 """
 function getLocalAncestries(chromosome::Union{Int64,String}, 
