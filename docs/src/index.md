@@ -18,7 +18,7 @@ CurrentModule = LocalAncestry
 ```
 
 ```@docs
-    getLocalAncestries(chromosome::Union{Int64,String}, 
+    get_local_ancestries(chromosome::Union{Int64,String}, 
                           referenceVCF::String, 
                           targetVCF::String, 
                           referenceAncestries::DataFrame; 

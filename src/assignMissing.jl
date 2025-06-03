@@ -1,6 +1,5 @@
 
 function assignCertain!(postClass, postProb, populations, LL, minProb)
-
     nPopulations = length(populations)
     nBlocks = length(LL)
 
@@ -9,7 +8,6 @@ function assignCertain!(postClass, postProb, populations, LL, minProb)
     maxLoc = Int(0)
     for k in keys(postClass)
         for (p, pop) in enumerate(populations)
-
             tmp[p, :] = postProb[k][pop]
         end
 
@@ -21,7 +19,6 @@ function assignCertain!(postClass, postProb, populations, LL, minProb)
             end
         end
     end
-
 end
 
 function assignFirst!(postClass, postProb)
@@ -35,13 +32,17 @@ function assignFirst!(postClass, postProb)
                 current = getDictionaryCrosssection(prob0_ind, pos)
 
                 if pos > 1
-                    backwards, stepBack = searchBackwards(originalAssignments, prob0_ind, pos)
+                    backwards, stepBack = searchBackwards(
+                        originalAssignments, prob0_ind, pos
+                    )
                 else
                     stepBack = 0
                 end
 
                 if pos < length(originalAssignments)
-                    forward, stepForward = searchForward(originalAssignments, prob0_ind, pos)
+                    forward, stepForward = searchForward(
+                        originalAssignments, prob0_ind, pos
+                    )
                 else
                     stepForward = 0
                 end
@@ -118,8 +119,9 @@ function assignHMM!(postClass, postProb)
                     backwardsAssign = argmax(startProbs)
                 end
 
-                HMMpos = (startPos+1):(endPos-1)
-                if (forwardAssign * backwardsAssign > 0) && (forwardAssign != backwardsAssign)
+                HMMpos = (startPos + 1):(endPos - 1)
+                if (forwardAssign * backwardsAssign > 0) &&
+                    (forwardAssign != backwardsAssign)
 
                     # Perform HMM
                     HMMpops = [argmax(startProbs); argmax(endProbs)]
@@ -132,10 +134,16 @@ function assignHMM!(postClass, postProb)
                         ## Forward
                         emission = getDictionaryCrosssection(prob0_ind, j)[HMMpops]
                         if i == 1
-                            HMMforward[:, i] = getDictionaryCrosssection(prob0_ind, j)[HMMpops] .* startProbs[HMMpops]
+                            HMMforward[:, i] =
+                                getDictionaryCrosssection(prob0_ind, j)[HMMpops] .*
+                                startProbs[HMMpops]
                         else
                             for m in 1:2
-                                HMMforward[m, i] = emission[m] * sum(HMMforward[s, i-1] * transition_matrix[m, s] for s in 1:2)
+                                HMMforward[m, i] =
+                                    emission[m] * sum(
+                                        HMMforward[s, i - 1] * transition_matrix[m, s] for
+                                        s in 1:2
+                                    )
                             end
                         end
                         HMMforward[:, i] .= HMMforward[:, i] ./ sum(HMMforward[:, i])
@@ -145,20 +153,28 @@ function assignHMM!(postClass, postProb)
                         jb = HMMpos[ib]
                         emission = getDictionaryCrosssection(prob0_ind, jb)[HMMpops]
                         if ib == HMMblocks
-                            HMMbackwards[:, ib] = getDictionaryCrosssection(prob0_ind, jb)[HMMpops] .* endProbs[HMMpops]
+                            HMMbackwards[:, ib] =
+                                getDictionaryCrosssection(prob0_ind, jb)[HMMpops] .*
+                                endProbs[HMMpops]
                         else
                             for m in 1:2
-                                HMMbackwards[m, ib] = emission[m] * sum(HMMbackwards[s, ib+1] * transition_matrix[m, s] for s in 1:2)
+                                HMMbackwards[m, ib] =
+                                    emission[m] * sum(
+                                        HMMbackwards[s, ib + 1] * transition_matrix[m, s]
+                                        for s in 1:2
+                                    )
                             end
                         end
-                        HMMbackwards[:, ib] .= HMMbackwards[:, ib] ./ sum(HMMbackwards[:, ib])
-
+                        HMMbackwards[:, ib] .=
+                            HMMbackwards[:, ib] ./ sum(HMMbackwards[:, ib])
                     end
 
                     viterbyHMM(HMMforward, HMMbackwards, HMMblocks, collect(1:2))
 
                     for b in 1:HMMblocks
-                        postClass[k][HMMpos[b]] = populations[HMMpops[argmax(HMMforward[:, b])]]
+                        postClass[k][HMMpos[b]] = populations[HMMpops[argmax(
+                            HMMforward[:, b]
+                        )]]
                     end
                 elseif forwardAssign == 0
                     postClass[k][HMMpos] .= postClass[k][startPos]

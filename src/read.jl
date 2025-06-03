@@ -38,7 +38,7 @@ function getVCFdata(f, c, l, n)
     this_chromosome = [string(c), "chr" * string(c)]
     foundFocalChromosome = false
     record = VCF.Record()
-    xRows = sort([collect(3:3:(3*n)); collect(1:3:(3*n))])
+    xRows = sort([collect(3:3:(3 * n)); collect(1:3:(3 * n))])
     i = 0
     dict_record = Dict{UInt8,UInt8}(0x30 => 0, 0x31 => 1, 0x7c => 0)
     reader = VCF.Reader(open(f, "r"))
@@ -53,7 +53,9 @@ function getVCFdata(f, c, l, n)
 
         if any(recordChromosome .== this_chromosome)
             i += 1
-            x[:, i] = Int8.(get.([dict_record], record.data[vvToV(record.genotype)][xRows], 2))
+            x[:, i] = Int8.(
+                get.([dict_record], record.data[vvToV(record.genotype)][xRows], 2)
+            )
             if !foundFocalChromosome
                 foundFocalChromosome = true
             end
@@ -78,7 +80,10 @@ function readVCF(file::String, chromosome::Int64)
 
     # Checks
     assertFile(file, ".vcf")
-    assertPositiveInteger(chromosome, errormessage="chromosome was $(chromosome), but should be an integer larger than zero")
+    assertPositiveInteger(
+        chromosome;
+        errormessage="chromosome was $(chromosome), but should be an integer larger than zero",
+    )
 
     # Get the number of loci from the focal chromosome
     individuals = getVCFindividuals(file)
@@ -89,7 +94,6 @@ function readVCF(file::String, chromosome::Int64)
 end
 
 function readTrue(file::String, map::String, chromosome::Int64, individuals::Vector{String})
-
     genomic_map = CSV.read(map, DataFrame)
     columns_from_file = findall(genomic_map.chromosome .== chromosome)
     out = zeros(Int32, 2 * length(individuals), length(columns_from_file))
@@ -113,7 +117,6 @@ function readTrue(file::String, map::String, chromosome::Int64, individuals::Vec
 end
 
 function readRfmix(path::String, mappath::String)
-
     if !isfile(path)
         error("Assignment file not found!")
     end
@@ -123,19 +126,21 @@ function readRfmix(path::String, mappath::String)
     end
 
     # Read the data
-    data = CSV.read(path, DataFrame, header=2)
+    data = CSV.read(path, DataFrame; header=2)
     genomic_map = CSV.read(mappath, DataFrame)
 
     individuals = unique(replace.(names(data)[5:end], r":::.*" => ""))
     populations = unique(replace.(names(data)[5:end], r".*:::hap\d+:::" => ""))
-    haplotypes = unique(replace.(replace.(names(data)[5:end], r".*:::hap" => ""), r":::.*" => ""))
+    haplotypes = unique(
+        replace.(replace.(names(data)[5:end], r".*:::hap" => ""), r":::.*" => "")
+    )
     chromosome = data.chromosome[1]
     nMarkers = sum(genomic_map.chromosome .== chromosome)
     nBlocks = size(data, 1)
     blocks = Vector{UnitRange{Int64}}(undef, size(data, 1))
     for (i, j) in enumerate(data.genetic_marker_index)
         blockstart = j + 1
-        blockend = i == nBlocks ? nMarkers : data.genetic_marker_index[i+1]
+        blockend = i == nBlocks ? nMarkers : data.genetic_marker_index[i + 1]
         blocks[i] = blockstart:blockend
     end
 
@@ -152,7 +157,9 @@ function readRfmix(path::String, mappath::String)
 
     for (i, ind) in enumerate(levels1)
         probcolumns = levels2[i] .* populations
-        class[ind] = [populations[argmax([data[j, c] for c in probcolumns])] for j in 1:nBlocks]
+        class[ind] = [
+            populations[argmax([data[j, c] for c in probcolumns])] for j in 1:nBlocks
+        ]
     end
 
     # Fill probabilities
@@ -160,7 +167,7 @@ function readRfmix(path::String, mappath::String)
     for (i, ind) in enumerate(levels1)
         probs[ind] = OrderedDict{String,Vector{Union{Missing,Float64}}}()
         for p in populations
-            probs[ind][p] = data[:, levels2[i].*p]
+            probs[ind][p] = data[:, levels2[i] .* p]
         end
     end
 

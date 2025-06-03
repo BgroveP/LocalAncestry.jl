@@ -1,5 +1,5 @@
 """
-    getLocalAncestries(chromosome::Union{Int64,String}, 
+    get_local_ancestries(chromosome::Union{Int64,String}, 
                           referenceVCF::String, 
                           targetVCF::String, 
                           referenceAncestries::DataFrame; 
@@ -28,15 +28,17 @@ This function infers local ancestries. It is meant as a one-function interface t
 - `haplotypeLibrary::OrderedDict{}`: The library of haplotype blocks.
 
 """
-function getLocalAncestries(chromosome::Union{Int64,String}, 
-                          referenceVCF::String, 
-                          targetVCF::String, 
-                          referenceAncestries::DataFrame; 
-                          priorsMethod::String = "flat", 
-                          minBlockSize::Int64 = 5, 
-                          incrBlockSize::Int64 = 1, 
-                          blockCrit::Float64 = 0.2, 
-                          minNBCProb::Float64 = 0.95)
+function get_local_ancestries(
+    chromosome::Union{Int64,String},
+    referenceVCF::String,
+    targetVCF::String,
+    referenceAncestries::DataFrame;
+    priorsMethod::String="flat",
+    minBlockSize::Int64=5,
+    incrBlockSize::Int64=1,
+    blockCrit::Float64=0.2,
+    minNBCProb::Float64=0.95,
+)
 
     # Constants
     ploidity = 2
@@ -47,34 +49,71 @@ function getLocalAncestries(chromosome::Union{Int64,String},
     ## Read haplotype data
     referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
     targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
-    referenceAncestriesVector = LocalAncestry.haplotypeOrigins(referenceIndividuals, referenceAncestries)
+    referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
+        referenceIndividuals, referenceAncestries
+    )
 
     # Get population information
     populations = unique(referenceAncestriesVector)
     popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks = LocalAncestry.getHaploBlocks(minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1)
+    haplotypeLibrary, nHaplotypeBlocks = LocalAncestry.getHaploBlocks(
+        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1
+    )
 
     # Get priors
-    priorProb, priorLevel = LocalAncestry.getPriors(referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod)
+    priorProb, priorLevel = LocalAncestry.getPriors(
+        referenceAncestriesVector,
+        referenceData,
+        targetIndividuals,
+        targetData,
+        priorsMethod,
+    )
 
     # Get log-likelihoods
     LL = LocalAncestry.calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
 
     # predict
-    postProb = LocalAncestry.getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
-    postClass = LocalAncestry.getAssignments(assignType, postProb, populations, LL, minNBCProb, targetIndividuals, ploidity, haplotypeLibrary)
+    postProb = LocalAncestry.getProbabilities(
+        predictType,
+        targetIndividuals,
+        ploidity,
+        LL,
+        populations,
+        nHaplotypeBlocks,
+        priorProb,
+        priorLevel,
+        probStayState,
+        targetData,
+    )
+    postClass = LocalAncestry.getAssignments(
+        assignType,
+        postProb,
+        populations,
+        LL,
+        minNBCProb,
+        targetIndividuals,
+        ploidity,
+        haplotypeLibrary,
+    )
 
     return postProb, postClass, haplotypeLibrary
 end
 
-function getPriors(referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod)
-
+function getPriors(
+    referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod
+)
     if priorsMethod == "flat"
         x, n = priorsFlat(referenceAncestriesVector, targetIndividuals)
     elseif priorsMethod[1:3] == "CGR"
-        x, n = priorsCGR(referenceData, targetData, targetIndividuals, referenceAncestriesVector, priorsMethod)
+        x, n = priorsCGR(
+            referenceData,
+            targetData,
+            targetIndividuals,
+            referenceAncestriesVector,
+            priorsMethod,
+        )
     else
         throw(DomainError(priorsMethod, "Expected 'flat' or 'CGR'"))
     end
@@ -82,27 +121,83 @@ function getPriors(referenceAncestriesVector, referenceData, targetIndividuals, 
     return x, n
 end
 
-function getProbabilities(predictType, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel, probStayState, targetData)
+function getProbabilities(
+    predictType,
+    targetIndividuals,
+    ploidity,
+    LL,
+    populations,
+    nHaplotypeBlocks,
+    priorProb,
+    priorLevel,
+    probStayState,
+    targetData,
+)
 
     # Instantiate output
-    postProb = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-        [OrderedDict(populations .=> [Vector{Union{Missing,Float64}}(missing, nHaplotypeBlocks) for i in 1:length(populations)]) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
+    postProb = OrderedDict(
+        zip(
+            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
+            [
+                OrderedDict(
+                    populations .=> [
+                        Vector{Union{Missing,Float64}}(missing, nHaplotypeBlocks) for
+                        i in 1:length(populations)
+                    ],
+                ) for l in 1:length(targetIndividuals) for h in 1:ploidity
+            ],
+        ),
+    )
 
     if predictType == "Naive Bayes"
-        predictNaiveBayes!(postProb, targetData, targetIndividuals, ploidity, LL, populations, nHaplotypeBlocks, priorProb, priorLevel)
+        predictNaiveBayes!(
+            postProb,
+            targetData,
+            targetIndividuals,
+            ploidity,
+            LL,
+            populations,
+            nHaplotypeBlocks,
+            priorProb,
+            priorLevel,
+        )
     elseif predictType == "Hidden Markov"
-        predictHiddenMarkov!(postProb, LL, populations, targetIndividuals, probStayState, targetData, ploidity=ploidity)
+        predictHiddenMarkov!(
+            postProb,
+            LL,
+            populations,
+            targetIndividuals,
+            probStayState,
+            targetData;
+            ploidity=ploidity,
+        )
     else
         throw(DomainError(predictType, "Expected 'Naive Bayes' or 'Hidden Markov'"))
     end
     return postProb
 end
 
-function getAssignments(assignType, postProb, populations, LL, minNBCProb, targetIndividuals, ploidity, haplotypeLibrary)
+function getAssignments(
+    assignType,
+    postProb,
+    populations,
+    LL,
+    minNBCProb,
+    targetIndividuals,
+    ploidity,
+    haplotypeLibrary,
+)
 
     # Instantiate output
-    postClass = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-        [Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
+    postClass = OrderedDict(
+        zip(
+            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
+            [
+                Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for
+                l in 1:length(targetIndividuals) for h in 1:ploidity
+            ],
+        ),
+    )
 
     # Assign certain blocks
     assignCertain!(postClass, postProb, populations, LL, minNBCProb)

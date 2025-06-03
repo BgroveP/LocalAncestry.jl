@@ -11,7 +11,7 @@ ra = DataFrame(individual="individual" .* string.([1, 2, 3]), population=["a", "
     @testset verbose = true "big blocks" begin
         # Read
         for c in 1:2
-            postProb, postClass, haplotypeLibrary = getLocalAncestries(c, "data/reference.vcf", "data/target.vcf", ra)
+            postProb, postClass, haplotypeLibrary = get_local_ancestries(c, "data/reference.vcf", "data/target.vcf", ra)
 
 
             ancestryControl = CSV.read("data/targetancestries.csv", DataFrame)
@@ -28,7 +28,7 @@ ra = DataFrame(individual="individual" .* string.([1, 2, 3]), population=["a", "
     # Read
     @testset verbose = true "small blocks" begin
         for c in 1:2
-            postProb, postClass, haplotypeLibrary = getLocalAncestries(c, "data/reference.vcf", "data/target.vcf", ra, minBlockSize=1, blockCrit = 0.2)
+            postProb, postClass, haplotypeLibrary = get_local_ancestries(c, "data/reference.vcf", "data/target.vcf", ra, minBlockSize=1, blockCrit = 0.2)
 
 
             ancestryControl = CSV.read("data/targetancestries.csv", DataFrame)

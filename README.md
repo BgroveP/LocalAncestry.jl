@@ -23,7 +23,7 @@ Pkg.add(url = "https://github.com/BgroveP/LocalAncestry.jl", rev="0.1.0")
 ## Public API
 The user of this package only need to run one function to estimate local ancestries:
 ```julia
-    getLocalAncestries(chromosome::Union{Int64,String}, 
+    get_local_ancestries(chromosome::Union{Int64,String}, 
                           referenceVCF::String, 
                           targetVCF::String, 
                           referenceAncestries::DataFrame; 

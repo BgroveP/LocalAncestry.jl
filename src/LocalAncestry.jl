@@ -1,7 +1,7 @@
 module LocalAncestry
-using CSV 
-using DataFrames 
-using OrderedCollections 
+using CSV
+using DataFrames
+using OrderedCollections
 using Tables
 using VariantCallFormat
 
@@ -19,6 +19,6 @@ include("priors.jl")
 include("read.jl")
 include("evaluate.jl")
 
-export getLocalAncestries
+export get_local_ancestries
 
 end

@@ -2,3 +2,4 @@
 .vscode/
 test/develop.jl
 docs/build/
+convenience/

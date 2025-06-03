@@ -15,20 +15,20 @@ function vvToV(x)
     return flattened_vector
 end
 
-
 function haplotypeOrigins(i::Vector{String}, o::DataFrames.DataFrame)
-    x = DataFrames.DataFrame(individual=repeat(i, inner=2))
-    y = string.(DataFrames.leftjoin(x, o, on="individual")[!, "population"])
-    
+    x = DataFrames.DataFrame(; individual=repeat(i; inner=2))
+    y = string.(DataFrames.leftjoin(x, o; on="individual")[!, "population"])
+
     # Asserts
     assertVector(y, "The vector with origins of reference individuals")
-    
+
     # Return
     return y
 end
 
-
-rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0) = (first(rObject)+firstInc-firstDec):(last(rObject)+lastInc-lastDec)
+function rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0)
+    (first(rObject) + firstInc - firstDec):(last(rObject) + lastInc - lastDec)
+end
 
 function countThisHaploNumber(X, t)
     count = 0
@@ -46,7 +46,7 @@ end
 
 function searchForward(est0_ind, prob0_ind, pos)
     countForward = 1
-    while ismissing(est0_ind[pos+countForward])
+    while ismissing(est0_ind[pos + countForward])
         countForward += 1
         if (pos + countForward) > length(est0_ind)
             countForward = 0
@@ -59,7 +59,7 @@ end
 
 function searchBackwards(est0_ind, prob0_ind, pos)
     countBackwards = 1
-    while ismissing(est0_ind[pos-countBackwards])
+    while ismissing(est0_ind[pos - countBackwards])
         countBackwards += 1
         if (pos - countBackwards) < 1
             countBackwards = 0
@@ -90,20 +90,25 @@ function alleleFrequencies(x, y)
     p = zeros(Float32, size(x, 2), length(pops))
     for (j, pop) in enumerate(pops)
         rows = findall(pop .== y)
-        p[:, j] = Statistics.mean(x[rows, :], dims=1)
+        p[:, j] = Statistics.mean(x[rows, :]; dims=1)
     end
 
     return p
 end
 
 function instantiateOutput()
-
-    postClass = OrderedDict(zip([i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-        [Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for l in 1:length(targetIndividuals) for h in 1:ploidity]))
+    postClass = OrderedDict(
+        zip(
+            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
+            [
+                Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for
+                l in 1:length(targetIndividuals) for h in 1:ploidity
+            ],
+        ),
+    )
 
     return postProb, postClass
 end
-
 
 function calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
     LL = OrderedDict()
