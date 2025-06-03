@@ -58,4 +58,9 @@ builds the library of haplotype blocks,
 predicts local ancestry using Naive Bayes Classification, 
 and lastly it reinforces the assignment using Hidden Markov models.
 
-The walkthrough of the function is based on the toy data in the *test/data/* folder of the repository.
+## Planned changes
+- Fine-tuning of model parameters.
+- Speed-up and parallelization of processes.
+- Expanded support for input and output to make incorporation into existing pipelines easier.
+- Options for supplying priors to the Naive Bayes Classification step that improve accuracy of assignment.
+- Make the code adhere to the blue style for the Julia language.
