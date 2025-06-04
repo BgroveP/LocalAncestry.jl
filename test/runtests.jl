@@ -67,3 +67,4 @@ printstyled("\n\nTesting the read function\n"; color=:blue)
     end
 end
 
+# Make test for haplotype library search with different initial sizes and incremental sizes

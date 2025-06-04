@@ -58,7 +58,7 @@ function get_local_ancestries(
     popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks = LocalAncestry.getHaploBlocks(
+    haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(
         minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1
     )
 

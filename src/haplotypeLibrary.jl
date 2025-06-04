@@ -2,13 +2,13 @@ function getHaploBlocks(initSize, stepSize, threshold, data, popDict, startFrom=
     nCol = size(data, 2)
     haploLib = OrderedDict()
     while in(startFrom, 1:nCol)
-        if (startFrom == nCol) || (startFrom+stepSize >= nCol)
+        if (startFrom == nCol) || (startFrom+stepSize+initSize >= nCol)
             thisBlock = startFrom:nCol
-            ia, haplotypes = computeIA(data[:, thisBlock], popDict)
+            ia, haplotypes = LocalAncestry.computeIA(data[:, thisBlock], popDict)
             haploLib[thisBlock] = haplotypes
             break
         else
-            key, value = haploSearch(
+            key, value = LocalAncestry.haploSearch(
                 initSize, stepSize, threshold, data, startFrom, popDict
             )
             haploLib[key] = value
