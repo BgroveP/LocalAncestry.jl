@@ -3,3 +3,4 @@
 test/develop.jl
 docs/build/
 convenience/
+test/data

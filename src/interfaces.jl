@@ -213,3 +213,75 @@ function getAssignments(
     end
     return postClass
 end
+
+function get_local_ancestries2(
+    chromosome::Union{Int64,String},
+    referenceVCF::String,
+    targetVCF::String,
+    referenceAncestries::DataFrame;
+    priorsMethod::String="flat",
+    minBlockSize::Int64=5,
+    incrBlockSize::Int64=1,
+    blockCrit::Float64=0.2,
+    minNBCProb::Float64=0.95,
+)
+
+    # Constants
+    ploidity = 2
+    predictType = "Naive Bayes"
+    assignType = "Hidden Markov"
+    probStayState = 0.99
+
+    ## Read haplotype data
+    referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
+    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
+    referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
+        referenceIndividuals, referenceAncestries
+    )
+
+    # Get population information
+    populations = unique(referenceAncestriesVector)
+    popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
+
+    # Get haplotype library
+    haplotypeLibrary, nHaplotypeBlocks, LL = getHaploBlocks2(
+        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1)
+
+    # Get priors
+    priorProb, priorLevel = LocalAncestry.getPriors(
+        referenceAncestriesVector,
+        referenceData,
+        targetIndividuals,
+        targetData,
+        priorsMethod,
+    )
+
+    # Get log-likelihoods
+    LL = LocalAncestry.calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
+
+    # predict
+    postProb = LocalAncestry.getProbabilities(
+        predictType,
+        targetIndividuals,
+        ploidity,
+        LL,
+        populations,
+        nHaplotypeBlocks,
+        priorProb,
+        priorLevel,
+        probStayState,
+        targetData,
+    )
+    postClass = LocalAncestry.getAssignments(
+        assignType,
+        postProb,
+        populations,
+        LL,
+        minNBCProb,
+        targetIndividuals,
+        ploidity,
+        haplotypeLibrary,
+    )
+
+    return postProb, postClass, haplotypeLibrary
+end
