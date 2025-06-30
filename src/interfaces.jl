@@ -58,7 +58,7 @@ function get_local_ancestries(
     popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(
+    haplotypeLibrary, nHaplotypeBlocks = LocalAncestry.getHaploBlocks(
         minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1
     )
 
@@ -219,22 +219,17 @@ function get_local_ancestries2(
     referenceVCF::String,
     targetVCF::String,
     referenceAncestries::DataFrame;
-    priorsMethod::String="flat",
     minBlockSize::Int64=5,
     incrBlockSize::Int64=1,
-    blockCrit::Float64=0.2,
+    blockCrit::Float64=0.01,
     minNBCProb::Float64=0.95,
 )
 
     # Constants
     ploidity = 2
-    predictType = "Naive Bayes"
-    assignType = "Hidden Markov"
-    probStayState = 0.99
 
-    ## Read haplotype data
+    ## Read reference haplotype data
     referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
-    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
     referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
         referenceIndividuals, referenceAncestries
     )
@@ -244,44 +239,26 @@ function get_local_ancestries2(
     popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks, LL = getHaploBlocks2(
-        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1)
+    haplotypeLibrary = LocalAncestry.getHaploBlocks2(
+        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict)
 
-    # Get priors
-    priorProb, priorLevel = LocalAncestry.getPriors(
-        referenceAncestriesVector,
-        referenceData,
-        targetIndividuals,
-        targetData,
-        priorsMethod,
-    )
+    # Load target haplotype data
+    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
 
-    # Get log-likelihoods
-    LL = LocalAncestry.calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
+    postProb, postClass, classDict, probDict = lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
+    return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
+end
 
-    # predict
-    postProb = LocalAncestry.getProbabilities(
-        predictType,
-        targetIndividuals,
-        ploidity,
-        LL,
-        populations,
-        nHaplotypeBlocks,
-        priorProb,
-        priorLevel,
-        probStayState,
-        targetData,
-    )
-    postClass = LocalAncestry.getAssignments(
-        assignType,
-        postProb,
-        populations,
-        LL,
-        minNBCProb,
-        targetIndividuals,
-        ploidity,
-        haplotypeLibrary,
-    )
+function lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, nPopulations::Int, ploidity)
 
-    return postProb, postClass, haplotypeLibrary
+    # Predict
+    postProb, probDict, probRowdict = predict2(haplotypeLibrary, targetData, targetIndividuals, nPopulations, ploidity)
+
+    # Assign certain
+    postClass, classDict = assignCertain2(postProb, nPopulations, ploidity, targetIndividuals, minNBCProb)
+
+    # Assign2
+    assign_missing2!(postProb, postClass, nPopulations, probRowdict, ploidity)
+
+    return postProb, postClass, classDict, probDict
 end

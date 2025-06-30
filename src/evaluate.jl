@@ -106,7 +106,7 @@ function evaluate2(
 
             # Crossover mid-block
             x.meanComplexBlock[j] +=
-                (size(unique(trueO[indices_in_both[i], r]), 1) > 1)/divisor
+                (size(unique(trueO[indices_in_both[i], r]), 1) > 1) / divisor
 
             # Confusion matrix
             predPop = classes[ind][j]
@@ -115,7 +115,7 @@ function evaluate2(
                 truePop = pops[truePopIndice]
 
                 tempColumn = "O" * truePop * "P" * predPop
-                x[j, tempColumn] += 1/Ovec[truePopIndice]
+                x[j, tempColumn] += 1 / Ovec[truePopIndice]
             end
         end
     end
@@ -168,3 +168,31 @@ function evaluatePerLocus(classes, map_path, true_origins, library, chromosome, 
     x.incorrect .= 1 .- (x.correct .+ x.unassigned)
     return x
 end
+
+
+# Evaluate2
+function evaluatePerLocus2(classes, individuals, map_path, true_origins, library, chromosome, populations, haplotype=0)
+    trueO, _ = LocalAncestry.readTrue(true_origins, map_path, chromosome, individuals)
+    intpops = ["holstein", "jersey", "reddairy"]
+
+    nLoci = size(trueO, 2)
+    nIndividuals = size(trueO, 1)
+    out = zeros(Int, nLoci)
+    skips = haplotype > 0 ? 2 : 1
+    haplotype = max(1, haplotype)
+
+    divisor = nIndividuals/skips
+    for i in 1:skips:nIndividuals
+        for (k, b) in enumerate(keys(library))
+            for j in b
+                if intpops[trueO[i, j]] == string.(populations)[classes[i, k]]
+                    out[j] += 1
+                end
+            end
+        end
+    end
+
+    tout = out ./ divisor
+    return tout
+end
+

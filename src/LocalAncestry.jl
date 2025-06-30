@@ -5,6 +5,9 @@ using OrderedCollections
 using Tables
 using VariantCallFormat
 
+# Constants
+
+
 # Write your package code here.
 include("assignMissing.jl")
 include("checks.jl")
