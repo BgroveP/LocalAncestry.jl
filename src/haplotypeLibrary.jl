@@ -57,7 +57,7 @@ function getHaploBlocks2(initSize::Int, stepSize::Int, threshold::Float64, data:
             haploLib[oldBlock] = LocalAncestry.haplotypeDict(counts,dict)
             
             save = false
-            oldBlock = (last(oldBlock) + 1):(min((last(oldBlock) + 1) + initSize, nloci))
+            oldBlock = (last(oldBlock) + 1):(min(last(oldBlock) + initSize, nloci))
             oldIA = LocalAncestry.computeIA2(data, oldBlock, popDict, n)
         end
         newBlock = first(oldBlock):(last(oldBlock)+stepSize)
