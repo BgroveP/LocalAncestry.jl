@@ -229,7 +229,7 @@ function get_local_ancestries2(
     ploidity = 2
 
     ## Read reference haplotype data
-    referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
+    referenceData, referenceIndividuals = LocalAncestry.readVCF2(referenceVCF, chromosome)
     referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
         referenceIndividuals, referenceAncestries
     )
@@ -243,7 +243,7 @@ function get_local_ancestries2(
         minBlockSize, incrBlockSize, blockCrit, referenceData, popDict)
 
     # Load target haplotype data
-    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
+    targetData, targetIndividuals = LocalAncestry.readVCF2(targetVCF, chromosome)
 
     postProb, postClass, classDict, probDict = lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
     return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict

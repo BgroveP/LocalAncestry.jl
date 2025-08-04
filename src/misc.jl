@@ -122,3 +122,17 @@ end
 function mean(x)
     return sum(x) / length(x)
 end
+
+function str_before_x_n_y(s::String, x::Char, y::Int)
+    notdone = true
+    i = 1
+    while notdone
+        if (i > y) || (s[i] == x)  
+            notdone = false
+            i -= 1
+        else
+            i += 1
+        end
+    end
+    return s[1:i]
+end

@@ -1,8 +1,8 @@
-function getVCFrows(file, c)
+function getVCFrows(file::String, c::Union{String,Int})
     # Initialize
     record = VCF.Record()
-    loci::Int64 = 0
-    foundFocalChromosome = false
+    loci::Int = 0
+    foundFocalChromosome::Bool = false
     this_chromosome = [string(c), "chr" * string(c)]
     reader = VCF.Reader(open(file, "r"))
 
@@ -30,6 +30,30 @@ function getVCFrows(file, c)
 
     return loci
 end
+function getVCFrows2(file::String, c::Union{String,Int})
+    # Initialize
+    loci::Int = 0
+    foundFocalChromosome::Bool = false
+    this_chromosome = [string(c), "chr" * string(c)]
+    infile = open(file)
+
+    while !eof(infile)
+
+        if any(str_before_x_n_y(readline(infile), '\t', 5) .== this_chromosome)
+            loci += 1
+            if !foundFocalChromosome
+                foundFocalChromosome = true
+            end
+        else
+            if foundFocalChromosome
+                break
+            end
+        end
+    end
+    close(infile)
+
+    return loci
+end
 
 function getVCFdata(f, c, l, n)
 
@@ -38,7 +62,7 @@ function getVCFdata(f, c, l, n)
     this_chromosome = [string(c), "chr" * string(c)]
     foundFocalChromosome = false
     record = VCF.Record()
-    xRows = sort([collect(3:3:(3 * n)); collect(1:3:(3 * n))])
+    xRows = sort([collect(3:3:(3*n)); collect(1:3:(3*n))])
     i = 0
     dict_record = Dict{UInt8,UInt8}(0x30 => 0, 0x31 => 1, 0x7c => 0)
     reader = VCF.Reader(open(f, "r"))
@@ -93,6 +117,23 @@ function readVCF(file::String, chromosome::Int64)
     return x, individuals
 end
 
+function readVCF2(file::String, chromosome::Int64)
+
+    # Checks
+    assertFile(file, ".vcf")
+    assertPositiveInteger(
+        chromosome;
+        errormessage="chromosome was $(chromosome), but should be an integer larger than zero",
+    )
+
+    # Get the number of loci from the focal chromosome
+    individuals = getVCFindividuals(file)
+    loci = getVCFrows2(file, chromosome)
+    x = getVCFdata(file, chromosome, loci, length(individuals))
+
+    return x, individuals
+end
+
 function readTrue(file::String, map::String, chromosome::Int64, individuals::Vector{String})
     genomic_map = CSV.read(map, DataFrame)
     columns_from_file = findall(genomic_map.chromosome .== chromosome)
@@ -140,7 +181,7 @@ function readRfmix(path::String, mappath::String)
     blocks = Vector{UnitRange{Int64}}(undef, size(data, 1))
     for (i, j) in enumerate(data.genetic_marker_index)
         blockstart = j + 1
-        blockend = i == nBlocks ? nMarkers : data.genetic_marker_index[i + 1]
+        blockend = i == nBlocks ? nMarkers : data.genetic_marker_index[i+1]
         blocks[i] = blockstart:blockend
     end
 
@@ -167,7 +208,7 @@ function readRfmix(path::String, mappath::String)
     for (i, ind) in enumerate(levels1)
         probs[ind] = OrderedDict{String,Vector{Union{Missing,Float64}}}()
         for p in populations
-            probs[ind][p] = data[:, levels2[i] .* p]
+            probs[ind][p] = data[:, levels2[i].*p]
         end
     end
 
