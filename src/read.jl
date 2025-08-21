@@ -30,6 +30,7 @@ function getVCFrows(file::String, c::Union{String,Int})
 
     return loci
 end
+
 function getVCFrows2(file::String, c::Union{String,Int})
     # Initialize
     loci::Int = 0
@@ -39,7 +40,7 @@ function getVCFrows2(file::String, c::Union{String,Int})
 
     while !eof(infile)
 
-        if any(str_before_x_n_y(readline(infile), '\t', 5) .== this_chromosome)
+        if any(readuntil(infile, '\t') .== this_chromosome)
             loci += 1
             if !foundFocalChromosome
                 foundFocalChromosome = true
@@ -49,6 +50,7 @@ function getVCFrows2(file::String, c::Union{String,Int})
                 break
             end
         end
+        _ = readline(infile)
     end
     close(infile)
 
@@ -92,6 +94,151 @@ function getVCFdata(f, c, l, n)
     close(reader)
     return x
 end
+
+function getVCFformat!(s)
+    spos = position(s)
+    for _ in 1:7
+        _ = readuntil(s, '\t')
+    end
+    formatstring = split(readuntil(s, '\t'), ":")
+    formatN = length(formatstring)
+    formatGT = formatN > 1 ? findfirst(formatstring .== "GT") : 0
+    seek(s, spos)
+
+    return (formatGT, formatN)
+end
+function getVCFdata2(f::String, c::Union{Int,String}, l::Int, n::Int)
+    
+    # Initialize
+    this_chromosome = ["", "chr"] .* string.([c, c])
+
+    # Iterables
+    x = zeros(Int8, 2 * n, l) 
+
+    # Dictionaries
+    dict_record = Dict{UInt8,Int8}(0x30 => 0, 0x31 => 1)
+
+    # Start file
+    infile = open(f, "r")
+
+    _ = readuntil(infile, '\t')
+    _ = readuntil(infile, '\n')
+
+    # Find chromosome
+    while !any(readuntil(infile, '\t') .== this_chromosome)
+        _ = readuntil(infile, '\n')
+    end
+
+    while j <= l
+    
+    end
+end
+function skipnchars(infile::IOStream, x::Int)
+
+    for _ in 1:x
+        skipchars(isntspace, infile)
+        skipchars(isspace, infile)
+    end
+    return nothing
+end
+
+function isntspace(x::Char)
+    return !isspace(x)
+end
+
+function getVCFdata2(f::String, c::Union{Int,String}, l::Int, n::Int; maxchunksize::Int=200000)
+
+    # Constants
+    thischunksize::Int = 0
+
+    # Initialize
+    this_chromosome = ["", "chr"] .* string.([c, c])
+    nsave::Int = 0
+    endoffile::Bool = false
+
+    # Iterables
+    x = zeros(Int8, 2 * n, l) .- 1
+    saved::UInt8 = 0x30
+    i::Int = 1
+    j::Int = 1
+    k1::Int = 1
+    k2::Int = 1
+
+    # Dictionaries
+    const uint8bar = 0x7c
+    const uint8tab = 0x09
+    const uint8newline = 0x0a
+    dict_record = Dict{UInt8,Int8}(0x30 => 0, 0x31 => 1)
+    dict_lookup(dict) = key -> dict[key]
+    lookup = dict_lookup(dict_record)
+
+    # Start file
+    infile = open(f, "r")
+    thischunk = Vector{UInt8}(undef, maxchunksize)
+    _ = readuntil(infile, '\t')
+    _ = readuntil(infile, '\n')
+
+    # Find chromosome
+    while !any(readuntil(infile, '\t') .== this_chromosome)
+        _ = readuntil(infile, '\n')
+    end
+
+    # Loop through the file
+    while !endoffile
+
+        thischunksize = readbytes!(infile, thischunk, maxchunksize)
+        endoffile = thischunksize < (maxchunksize)
+        thisloc = findall(thischunk .== uint8bar)
+        thisnewline = findall(thischunk .== uint8newline)
+        thistab = findall(thischunk .== uint8bar)
+
+
+        # If no relevant data in chunk, skip loop or both skip loop and increment locus counter
+        if (length(thisloc) == 0) && (length(thisnewline) == 0)
+            continue
+        elseif (length(thisloc) == 0) && (length(thisnewline) > 0)
+            j = j + 1
+            continue
+        end
+
+        k1 = 1
+        k2 = 0
+        k3 = 
+        if length(thisnewline) > 0
+            for nl in thisnewline
+                if j > l
+                    break
+                end
+                k1 = k2 + 1
+                k2 = searchsortedfirst(thisloc[k1:end], nl) - 2 + k1
+                # Before
+                if thisloc[k1] != 1
+                    x[i:2:(2*(k2-k1+1)+i-1), j] = lookup.(thischunk[thisloc[k1:k2].-1])
+                else
+                    nothing
+                end
+
+                # After
+                if thisloc[k2] != maxchunksize
+                    x[(i+1):2:(2*(k2-k1+1)+i), j] = lookup.(thischunk[thisloc[k1:k2].+1])
+                end
+                j = j + 1
+            end
+
+        end
+
+        # After last newline
+        k1 = k2 + 1
+        x[i:2:(length(thisloc)-k1+i), j] = lookup.(thischunk[thisloc[k1:2:end].-1])
+        x[(i+1):2:(length(thisloc)-k1+i), j] = lookup.(thischunk[thisloc[k1:2:end].+1])
+    end
+    close(infile)
+
+    return x
+end
+using BenchmarkTools
+@benchmark getVCFdata2(f, c, l, n)
+@benchmark LocalAncestry.getVCFdata(f, c, l, n)
 
 function getVCFindividuals(f)::Vector{String}
     r = VCF.Reader(open(f, "r"))
@@ -215,3 +362,4 @@ function readRfmix(path::String, mappath::String)
     # Return
     return probs, class, library
 end
+

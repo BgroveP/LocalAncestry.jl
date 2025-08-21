@@ -224,40 +224,51 @@ function get_local_ancestries2(
     blockCrit::Float64=0.01,
     minNBCProb::Float64=0.95,
 )
-
+    
     # Constants
     ploidity = 2
-
+    
     ## Read reference haplotype data
+    println("Reading reference data")
     referenceData, referenceIndividuals = LocalAncestry.readVCF2(referenceVCF, chromosome)
     referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
         referenceIndividuals, referenceAncestries
-    )
-
+        )
+        
     # Get population information
+    println("Getting population information")
     populations = unique(referenceAncestriesVector)
     popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
-
+    
     # Get haplotype library
+    println("Constructing haplotype blocks")
     haplotypeLibrary = LocalAncestry.getHaploBlocks2(
         minBlockSize, incrBlockSize, blockCrit, referenceData, popDict)
-
+        
     # Load target haplotype data
+    println("Reading target data")
     targetData, targetIndividuals = LocalAncestry.readVCF2(targetVCF, chromosome)
 
+    # Estimating Local ancestries
+    println("Estimating local ancestries")
     postProb, postClass, classDict, probDict = lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
+    
+    # Return
     return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
 end
 
 function lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, nPopulations::Int, ploidity)
 
     # Predict
+    println(" - Predict initial ancestries")
     postProb, probDict, probRowdict = predict2(haplotypeLibrary, targetData, targetIndividuals, nPopulations, ploidity)
-
+    
     # Assign certain
+    println(" - Assign certain ancestries")
     postClass, classDict = assignCertain2(postProb, nPopulations, ploidity, targetIndividuals, minNBCProb)
-
+    
     # Assign2
+    println(" - Predict final ancestries")
     assign_missing2!(postProb, postClass, nPopulations, probRowdict, ploidity)
 
     return postProb, postClass, classDict, probDict

@@ -27,7 +27,7 @@ function haplotypeOrigins(i::Vector{String}, o::DataFrames.DataFrame)
 end
 
 function rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0)
-    (first(rObject) + firstInc - firstDec):(last(rObject) + lastInc - lastDec)
+    (first(rObject)+firstInc-firstDec):(last(rObject)+lastInc-lastDec)
 end
 
 function countThisHaploNumber(X, t)
@@ -46,7 +46,7 @@ end
 
 function searchForward(est0_ind, prob0_ind, pos)
     countForward = 1
-    while ismissing(est0_ind[pos + countForward])
+    while ismissing(est0_ind[pos+countForward])
         countForward += 1
         if (pos + countForward) > length(est0_ind)
             countForward = 0
@@ -59,7 +59,7 @@ end
 
 function searchBackwards(est0_ind, prob0_ind, pos)
     countBackwards = 1
-    while ismissing(est0_ind[pos - countBackwards])
+    while ismissing(est0_ind[pos-countBackwards])
         countBackwards += 1
         if (pos - countBackwards) < 1
             countBackwards = 0
@@ -123,16 +123,12 @@ function mean(x)
     return sum(x) / length(x)
 end
 
-function str_before_x_n_y(s::String, x::Char, y::Int)
-    notdone = true
-    i = 1
-    while notdone
-        if (i > y) || (s[i] == x)  
-            notdone = false
-            i -= 1
-        else
-            i += 1
-        end
+function scroll!(s::IOStream, c::UInt8)
+    while isopen(s) && !eof(s) && (peek(s) != c)
+        seek(s, position(s) + 1)
     end
-    return s[1:i]
+    if isopen(s) && !eof(s)
+        seek(s, position(s) + 1)
+    end
+    return nothing
 end
