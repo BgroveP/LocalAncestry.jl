@@ -7,7 +7,7 @@ function assertFile(f::String, e::String)
 
     ## Is it a .vcf file?
     if f[(end - extensionsize + 1):end] != e
-        throw("File is not a $(extension) file.")
+        throw("File is not a $(e) file.")
     end
 end
 
