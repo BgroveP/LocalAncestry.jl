@@ -33,186 +33,61 @@ function get_local_ancestries(
     referenceVCF::String,
     targetVCF::String,
     referenceAncestries::DataFrame;
-    priorsMethod::String="flat",
     minBlockSize::Int64=5,
     incrBlockSize::Int64=1,
-    blockCrit::Float64=0.2,
+    blockCrit::Float64=0.01,
     minNBCProb::Float64=0.95,
 )
 
     # Constants
     ploidity = 2
-    predictType = "Naive Bayes"
-    assignType = "Hidden Markov"
-    probStayState = 0.99
 
-    ## Read haplotype data
+    ## Read reference haplotype data
+    println("Reading reference data")
     referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
-    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
     referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
         referenceIndividuals, referenceAncestries
     )
 
     # Get population information
+    println("Getting population information")
     populations = unique(referenceAncestriesVector)
     popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks = LocalAncestry.getHaploBlocks(
-        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1
-    )
+    println("Constructing haplotype blocks")
+    haplotypeLibrary = LocalAncestry.getHaploBlocks(
+        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict)
 
-    # Get priors
-    priorProb, priorLevel = LocalAncestry.getPriors(
-        referenceAncestriesVector,
-        referenceData,
-        targetIndividuals,
-        targetData,
-        priorsMethod,
-    )
+    # Load target haplotype data
+    println("Reading target data")
+    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
 
-    # Get log-likelihoods
-    LL = LocalAncestry.calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
+    # Estimating Local ancestries
+    println("Estimating local ancestries")
+    postProb, postClass, classDict, probDict = lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
 
-    # predict
-    postProb = LocalAncestry.getProbabilities(
-        predictType,
-        targetIndividuals,
-        ploidity,
-        LL,
-        populations,
-        nHaplotypeBlocks,
-        priorProb,
-        priorLevel,
-        probStayState,
-        targetData,
-    )
-    postClass = LocalAncestry.getAssignments(
-        assignType,
-        postProb,
-        populations,
-        LL,
-        minNBCProb,
-        targetIndividuals,
-        ploidity,
-        haplotypeLibrary,
-    )
-
-    return postProb, postClass, haplotypeLibrary
+    # Return
+    return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
 end
 
-function getPriors(
-    referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod
-)
-    if priorsMethod == "flat"
-        x, n = priorsFlat(referenceAncestriesVector, targetIndividuals)
-    elseif priorsMethod[1:3] == "CGR"
-        x, n = priorsCGR(
-            referenceData,
-            targetData,
-            targetIndividuals,
-            referenceAncestriesVector,
-            priorsMethod,
-        )
-    else
-        throw(DomainError(priorsMethod, "Expected 'flat' or 'CGR'"))
-    end
+function lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, nPopulations::Int, ploidity)
 
-    return x, n
+    # Predict
+    println(" - Predict initial ancestries")
+    postProb, probDict, probRowdict = predict(haplotypeLibrary, targetData, targetIndividuals, nPopulations, ploidity)
+
+    # Assign certain
+    println(" - Assign certain ancestries")
+    postClass, classDict = assignCertain(postProb, nPopulations, ploidity, targetIndividuals, minNBCProb)
+
+    # Assign2
+    println(" - Predict final ancestries")
+    assign_missing!(postProb, postClass, nPopulations, probRowdict, ploidity)
+
+    return postProb, postClass, classDict, probDict
 end
 
-function getProbabilities(
-    predictType,
-    targetIndividuals,
-    ploidity,
-    LL,
-    populations,
-    nHaplotypeBlocks,
-    priorProb,
-    priorLevel,
-    probStayState,
-    targetData,
-)
-
-    # Instantiate output
-    postProb = OrderedDict(
-        zip(
-            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-            [
-                OrderedDict(
-                    populations .=> [
-                        Vector{Union{Missing,Float64}}(missing, nHaplotypeBlocks) for
-                        i in 1:length(populations)
-                    ],
-                ) for l in 1:length(targetIndividuals) for h in 1:ploidity
-            ],
-        ),
-    )
-
-    if predictType == "Naive Bayes"
-        predictNaiveBayes!(
-            postProb,
-            targetData,
-            targetIndividuals,
-            ploidity,
-            LL,
-            populations,
-            nHaplotypeBlocks,
-            priorProb,
-            priorLevel,
-        )
-    elseif predictType == "Hidden Markov"
-        predictHiddenMarkov!(
-            postProb,
-            LL,
-            populations,
-            targetIndividuals,
-            probStayState,
-            targetData;
-            ploidity=ploidity,
-        )
-    else
-        throw(DomainError(predictType, "Expected 'Naive Bayes' or 'Hidden Markov'"))
-    end
-    return postProb
-end
-
-function getAssignments(
-    assignType,
-    postProb,
-    populations,
-    LL,
-    minNBCProb,
-    targetIndividuals,
-    ploidity,
-    haplotypeLibrary,
-)
-
-    # Instantiate output
-    postClass = OrderedDict(
-        zip(
-            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-            [
-                Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for
-                l in 1:length(targetIndividuals) for h in 1:ploidity
-            ],
-        ),
-    )
-
-    # Assign certain blocks
-    assignCertain!(postClass, postProb, populations, LL, minNBCProb)
-
-    # Assign the rest
-    if assignType == "none"
-    elseif assignType == "probonly"
-        assignFirst!(postClass, postProb)
-    elseif assignType == "Hidden Markov"
-        assignHMM!(postClass, postProb)
-    else
-        throw(DomainError(assignType, "Expected 'probonly' or 'Hidden Markov'"))
-    end
-    return postClass
-end
 
 function get_local_ancestries2(
     chromosome::Union{Int64,String},
@@ -224,52 +99,36 @@ function get_local_ancestries2(
     blockCrit::Float64=0.01,
     minNBCProb::Float64=0.95,
 )
-    
+
     # Constants
     ploidity = 2
-    
+
     ## Read reference haplotype data
     println("Reading reference data")
-    referenceData, referenceIndividuals = LocalAncestry.readVCF2(referenceVCF, chromosome)
+    referenceData, _, referenceIndividuals = LocalAncestry.readVCF2(referenceVCF, chromosome)
     referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
-        referenceIndividuals, referenceAncestries
-        )
-        
+        string.(referenceIndividuals), referenceAncestries
+    )
+
     # Get population information
     println("Getting population information")
     populations = unique(referenceAncestriesVector)
     popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
-    
+
+
     # Get haplotype library
     println("Constructing haplotype blocks")
-    haplotypeLibrary = LocalAncestry.getHaploBlocks2(
+    haplotypeLibrary = LocalAncestry.getHaploBlocks(
         minBlockSize, incrBlockSize, blockCrit, referenceData, popDict)
-        
+
     # Load target haplotype data
     println("Reading target data")
-    targetData, targetIndividuals = LocalAncestry.readVCF2(targetVCF, chromosome)
+    targetData, _, targetIndividuals = LocalAncestry.readVCF2(targetVCF, chromosome)
 
     # Estimating Local ancestries
     println("Estimating local ancestries")
-    postProb, postClass, classDict, probDict = lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
-    
+    postProb, postClass, classDict, probDict = LocalAncestry.lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
+
     # Return
     return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
-end
-
-function lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, nPopulations::Int, ploidity)
-
-    # Predict
-    println(" - Predict initial ancestries")
-    postProb, probDict, probRowdict = predict2(haplotypeLibrary, targetData, targetIndividuals, nPopulations, ploidity)
-    
-    # Assign certain
-    println(" - Assign certain ancestries")
-    postClass, classDict = assignCertain2(postProb, nPopulations, ploidity, targetIndividuals, minNBCProb)
-    
-    # Assign2
-    println(" - Predict final ancestries")
-    assign_missing2!(postProb, postClass, nPopulations, probRowdict, ploidity)
-
-    return postProb, postClass, classDict, probDict
 end

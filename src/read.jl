@@ -1,42 +1,10 @@
+# Read VCF prior
 function getVCFrows(file::String, c::Union{String,Int})
     # Initialize
-    record = VCF.Record()
     loci::Int = 0
     foundFocalChromosome::Bool = false
     this_chromosome = [string(c), "chr" * string(c)]
-    reader = VCF.Reader(open(file, "r"))
-
-    while !eof(reader)
-        try
-            read!(reader, record)
-        catch e
-            break
-        end
-        recordChromosome = VCF.chrom(record)
-
-        if any(recordChromosome .== this_chromosome)
-            loci += 1
-            if !foundFocalChromosome
-                foundFocalChromosome = true
-            end
-        else
-            if foundFocalChromosome
-                break
-            end
-        end
-    end
-
-    close(reader)
-
-    return loci
-end
-
-function getVCFrows2(file::String, c::Union{String,Int})
-    # Initialize
-    loci::Int = 0
-    foundFocalChromosome::Bool = false
-    this_chromosome = [string(c), "chr" * string(c)]
-    infile = open(file)
+    infile = vcf_open(file)
 
     while !eof(infile)
 
@@ -55,6 +23,12 @@ function getVCFrows2(file::String, c::Union{String,Int})
     close(infile)
 
     return loci
+end
+function getVCFindividuals(f)::Vector{String}
+    r = VCF.Reader(open(f, "r"))
+    x = r.header.sampleID
+    close(r)
+    return x
 end
 
 function getVCFdata(f, c, l, n)
@@ -95,68 +69,12 @@ function getVCFdata(f, c, l, n)
     return x
 end
 
-function getVCFformat!(s)
-    spos = position(s)
-    for _ in 1:7
-        _ = readuntil(s, '\t')
-    end
-    formatstring = split(readuntil(s, '\t'), ":")
-    formatN = length(formatstring)
-    formatGT = formatN > 1 ? findfirst(formatstring .== "GT") : 0
-    seek(s, spos)
 
-    return (formatGT, formatN)
-end
-function getVCFdata2(f::String, c::Union{Int,String}, l::Int, n::Int)
-    
-    # Initialize
-    this_chromosome = ["", "chr"] .* string.([c, c])
-
-    # Iterables
-    x = zeros(Int8, 2 * n, l) 
-
-    # Dictionaries
-    dict_record = Dict{UInt8,Int8}(0x30 => 0, 0x31 => 1)
-
-    # Start file
-    infile = open(f, "r")
-
-    _ = readuntil(infile, '\t')
-    _ = readuntil(infile, '\n')
-
-    # Find chromosome
-    while !any(readuntil(infile, '\t') .== this_chromosome)
-        _ = readuntil(infile, '\n')
-    end
-
-    while j <= l
-    
-    end
-end
-function skipnchars(infile::IOStream, x::Int)
-
-    for _ in 1:x
-        skipchars(isntspace, infile)
-        skipchars(isspace, infile)
-    end
-    return nothing
-end
-
-function isntspace(x::Char)
-    return !isspace(x)
-end
-
-function getVCFindividuals(f)::Vector{String}
-    r = VCF.Reader(open(f, "r"))
-    x = r.header.sampleID
-    close(r)
-    return x
-end
 
 function readVCF(file::String, chromosome::Int64)
 
     # Checks
-    assertFile(file, ".vcf")
+    #assertFile(file, ".vcf")
     assertPositiveInteger(
         chromosome;
         errormessage="chromosome was $(chromosome), but should be an integer larger than zero",
@@ -170,102 +88,309 @@ function readVCF(file::String, chromosome::Int64)
     return x, individuals
 end
 
-function readVCF2(file::String, chromosome::Int64)
-
-    # Checks
-    assertFile(file, ".vcf")
-    assertPositiveInteger(
-        chromosome;
-        errormessage="chromosome was $(chromosome), but should be an integer larger than zero",
-    )
-
-    # Get the number of loci from the focal chromosome
-    individuals = getVCFindividuals(file)
-    loci = getVCFrows2(file, chromosome)
-    x = getVCFdata(file, chromosome, loci, length(individuals))
-
-    return x, individuals
+# Read VCF new
+function skipline!(s::GZip.GZipStream, buf::Vector{UInt8})
+    while !eof(s)
+        # Read a chunk
+        ptr = gzgets(s, buf)
+        ptr == C_NULL && error("Error reading from GZipStream")
+        # Find the first newline in the chunk
+        idx = findfirst(==(UInt8('\n')), buf)
+        if idx !== nothing
+            # Found a newline; skip to the next line
+            return true
+        end
+    end
+    # Reached EOF without finding a newline
+    return false
 end
 
-function readTrue(file::String, map::String, chromosome::Int64, individuals::Vector{String})
-    genomic_map = CSV.read(map, DataFrame)
-    columns_from_file = findall(genomic_map.chromosome .== chromosome)
-    out = zeros(Int32, 2 * length(individuals), length(columns_from_file))
-    outInd = string.(zeros(Int8, 2 * length(individuals)))
-    inviduals_strings = string.(individuals)
-    open(file, "r") do reader
-        iterator = 1
-        for line in eachline(reader)
-            # Convert the line to an integer
-            splitted_string = split(line, "\t")
-            numbers = parse.(Int, splitted_string[2:end])
-            if any(splitted_string[1] .== inviduals_strings)
-                out[iterator, :] = numbers[columns_from_file]
-                outInd[iterator] = splitted_string[1]
-                iterator = iterator + 1
+function readline!(s::GZip.GZipStream, buf::Vector{UInt8}, pos::Int; b::Int = 10000)
+    # Grow buffer until we find an eol character
+    while !eof(s)
+        gzgets(s, pointer(buf) + pos - 1, length(buf) - pos + 1)
+        pos = findnext(x -> x == UInt8('\0'), buf, pos)::Int
+        if buf[pos-1] == UInt8('\n')
+            return true
+        else
+            resize!(buf, length(buf) + b)
+        end
+    end
+    # Reached EOF without finding a newline
+    return false
+end
+
+function getVCFloci(path::AbstractString, c::Union{AbstractString,Int})
+
+    # Constants 
+    buffersize = 1000000
+
+    # Initialize
+    loci = Vector{String}()
+    chromosome = ["", "chr"] .* string.([c, c])
+    file = vcf_open(path)
+    bufvec = Vector{UInt8}(undef, buffersize)
+
+    # Get loci
+    while !eof(file)
+        try
+            if any(readuntil(file, '\t') .== chromosome)
+
+                push!(loci, readuntil(file, '\t'))
+            end
+            skipline!(file, bufvec)
+        catch
+            if !eof(file)
+                error("Encountered unknown error while reading file")
             end
         end
     end
 
-    return out, outInd
+    return loci
 end
 
-function readRfmix(path::String, mappath::String)
-    if !isfile(path)
-        error("Assignment file not found!")
+function getVCFloci2(path::AbstractString, c::Union{AbstractString,Int})
+
+    # Constants 
+    buffersize = 10000
+
+    # Initialize
+    loci = Vector{String}()
+    this_chromosome = ["", "chr"] .* string.([c, c])
+    chromosome = string2UInt8.(this_chromosome)
+
+    file = vcf_open(path)
+    bufvec = Vector{UInt8}(undef, buffersize)
+    pos1::Int = 1
+    pos2::Int = 1
+    
+    # Scroll past headers
+    while readline!(file,bufvec,pos1)
+        if bufvec[2] != UInt8('#')
+            break
+        end
+    end
+    
+    # Read data lines
+    while readline!(file, bufvec, pos1)
+        if vcf_row_chromosome_check(bufvec, chromosome)
+            push!(loci, vcfrow_locus(bufvec, pos1, pos2))
+        end
     end
 
-    if !isfile(mappath)
-        error("Map file not found!")
+    return loci
+end
+
+function vcf_row_chromosome_check(bufvec::Vector{UInt8}, chromosome::Vector{Vector{UInt8}})
+    return any(all(bufvec[1:length(chromosome[1])] .== chromosome[1]) || all(bufvec[1:length(chromosome[2])] .== chromosome[2]))
+end
+function getVCFindividuals2(path::AbstractString)
+
+    # Constants 
+    initialbuffersize = 100000
+
+    # Initialize
+    file = vcf_open(path)
+    bufvec = Vector{UInt8}(undef, initialbuffersize)
+
+    # Get loci
+    while !eof(file)
+        skip(file, 1)
+        if Char(peek(file)) != '#'
+            return split(readline(file)[1:(end-1)], '\t')[10:end]
+        end
+        skipline!(file, bufvec)
+
+    end
+    return [""]
+end
+
+function vcfrow_locus(b::Vector{UInt8}, pos1::Int, pos2::Int)
+
+    pos1 = 1
+    pos2 = 1
+    # Find first separator
+    while b[pos1] != UInt8('\t')
+        pos1 = pos1 + 1
     end
 
-    # Read the data
-    data = CSV.read(path, DataFrame; header=2)
-    genomic_map = CSV.read(mappath, DataFrame)
-
-    individuals = unique(replace.(names(data)[5:end], r":::.*" => ""))
-    populations = unique(replace.(names(data)[5:end], r".*:::hap\d+:::" => ""))
-    haplotypes = unique(
-        replace.(replace.(names(data)[5:end], r".*:::hap" => ""), r":::.*" => "")
-    )
-    chromosome = data.chromosome[1]
-    nMarkers = sum(genomic_map.chromosome .== chromosome)
-    nBlocks = size(data, 1)
-    blocks = Vector{UnitRange{Int64}}(undef, size(data, 1))
-    for (i, j) in enumerate(data.genetic_marker_index)
-        blockstart = j + 1
-        blockend = i == nBlocks ? nMarkers : data.genetic_marker_index[i+1]
-        blocks[i] = blockstart:blockend
+    # Find second separator
+    pos1 = pos1 + 1
+    pos2 = pos1
+    while b[pos2+1] != UInt8('\t')
+        pos2 = pos2 + 1
     end
 
-    # Fill library
-    library = OrderedDict{UnitRange{Int64},Vector{Matrix{Int8}}}()
-    for i in 1:nBlocks
-        library[blocks[i]] = [zeros(Int8, 1, 1)]
+    return join(Char.(b[pos1:pos2]), "")
+end
+
+function vcfrow_haplotype(b::Vector{UInt8}, locusout::Vector{Int8}, pos1::Int, pos2::Int, pos3::Int)
+
+    pos1 = 0 # Used as '\t' counter
+    pos2 = 1 # Used for marking position
+    pos3 = 1
+    # Find first separator
+    while pos1 < 8
+        if b[pos2] == UInt8('\t')
+            pos1 = pos1 + 1
+        end
+        pos2 = pos2 + 1
     end
 
-    # Fill class
-    class = OrderedDict{String,Vector{Union{Missing,String}}}()
-    levels1 = [i * "_hap" * h for i in individuals for h in haplotypes]
-    levels2 = [i * ":::hap" * h * ":::" for i in individuals for h in haplotypes]
-
-    for (i, ind) in enumerate(levels1)
-        probcolumns = levels2[i] .* populations
-        class[ind] = [
-            populations[argmax([data[j, c] for c in probcolumns])] for j in 1:nBlocks
-        ]
+    # Find second separator
+    pos1 = pos2 # Now also used for marking position
+    while b[pos1+1] != UInt8('\t')
+        pos1 = pos1 + 1
     end
 
-    # Fill probabilities
-    probs = OrderedDict{String,OrderedDict{String,Vector{Union{Missing,Float64}}}}()
-    for (i, ind) in enumerate(levels1)
-        probs[ind] = OrderedDict{String,Vector{Union{Missing,Float64}}}()
-        for p in populations
-            probs[ind][p] = data[:, levels2[i].*p]
+    # Get haplotypes
+    if (b[pos2] == UInt8('G')) & (b[pos1] == UInt8('T')) & ((pos1 - pos2) == 1)
+        # If only field is "GT"
+        while (pos3 < length(locusout)) & (pos1 < length(b))
+            if b[pos1+1] == UInt8('|')
+                locusout[pos3] = b[pos1] - 48
+                locusout[pos3+1] = b[pos1+2] - 48
+                pos3 = pos3 + 2
+            end
+            pos1 = pos1 + 1
+        end
+    else
+        # If there are multiple fields
+        error("Can't read vcfs with multiple fields yet")
+    end
+
+end
+
+function vcf_open(path::AbstractString; opentype="r")
+    if path[(end-6):end] == ".vcf.gz"
+        file = GZip.open(path, opentype)
+    elseif path[(end-3):end] == ".vcf"
+        file = open(path, opentype)
+    else
+        error("Input file was not a (compressed) .vcf file")
+    end
+
+    return file
+end
+
+function readVCF2(path::AbstractString, c::Union{AbstractString,Int})
+
+    # Constants 
+    buffersize = 10000
+
+    # Initialize
+    this_chromosome = ["", "chr"] .* string.([c, c])
+    chromosome = string2UInt8.(this_chromosome)
+    chromosome_char_lengths = length.(chromosome)
+
+    loci = getVCFloci(path, c)
+    individuals = getVCFindividuals2(path)
+    x = zeros(Int8, 2 * length(individuals), length(loci))
+    file = vcf_open(path)
+
+    locusdict = Dict{String,Int}(loci .=> 1:length(loci))
+
+    # Read
+    # Initialize
+    ## Containers
+    buffer = zeros(UInt8, buffersize)
+    tmplocus = zeros(Int8, 2 * length(individuals))
+    chromosome_match = [true, true]
+
+    # Integers for iteration
+    pos1::Int = 1
+    pos2::Int = 1
+    pos3::Int = 1
+
+    # Read file until the end of file
+    while readline!(file, buffer, pos1)
+
+        # Skip all headers
+        if buffer[1] != UInt8('#')
+
+            # Check if the line contains the focal chromosome
+            chromosome_match .= true
+            for k in eachindex(chromosome_match)
+                pos = 1
+                while pos <= chromosome_char_lengths[k]
+                    if buffer[pos] != chromosome[k][pos]
+                        chromosome_match[k] = false
+                        break
+                    else
+                        pos = pos + 1
+                    end
+                end
+            end
+
+            # If line contains focal chromosome, read haplotypes
+            if any(chromosome_match)
+                vcfrow_haplotype(buffer, tmplocus, pos1, pos2, pos3)
+                x[:, locusdict[(vcfrow_locus(buffer, pos1, pos2))]] = tmplocus
+            end
         end
     end
 
     # Return
-    return probs, class, library
+    return x, loci, individuals
 end
 
+function readVCF3(path::AbstractString, c::Union{AbstractString,Int})
+
+    # Constants 
+    buffersize = 10000
+
+    # Initialize
+    this_chromosome = ["", "chr"] .* string.([c, c])
+    chromosome = string2UInt8.(this_chromosome)
+    chromosome_char_lengths = length.(chromosome)
+
+    loci = getVCFloci(path, c)
+    individuals = getVCFindividuals2(path)
+    x = zeros(Int8, 2 * length(individuals), length(loci))
+    file = vcf_open(path)
+
+    locusdict = Dict{String,Int}(loci .=> 1:length(loci))
+
+    # Read
+    # Initialize
+    ## Containers
+    buffer = zeros(UInt8, buffersize)
+    tmplocus = zeros(Int8, 2 * length(individuals))
+    chromosome_match = [true, true]
+
+    # Integers for iteration
+    pos1::Int = 1
+    pos2::Int = 1
+    pos3::Int = 1
+
+    # Read file until the end of file
+    while readline!(file, buffer, pos1)
+
+        # Skip all headers
+        if buffer[1] != UInt8('#')
+
+            # Check if the line contains the focal chromosome
+            chromosome_match .= true
+            for k in eachindex(chromosome_match)
+                pos = 1
+                while pos <= chromosome_char_lengths[k]
+                    if buffer[pos] != chromosome[k][pos]
+                        chromosome_match[k] = false
+                        break
+                    else
+                        pos = pos + 1
+                    end
+                end
+            end
+
+            # If line contains focal chromosome, read haplotypes
+            if any(chromosome_match)
+                vcfrow_haplotype(buffer, tmplocus, pos1, pos2, pos3)
+                x[:, locusdict[(vcfrow_locus(buffer, pos1, pos2))]] = tmplocus
+            end
+        end
+    end
+
+    # Return
+    return x, loci, individuals
+end

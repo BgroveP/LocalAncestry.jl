@@ -1,6 +1,7 @@
 module LocalAncestry
 using CSV
 using DataFrames
+using GZip
 using OrderedCollections
 using Tables
 using VariantCallFormat
@@ -12,16 +13,13 @@ using VariantCallFormat
 include("assignMissing.jl")
 include("checks.jl")
 include("haplotypeLibrary.jl")
-include("haplotypeSearch.jl")
 include("informativeness.jl")
-include("logLikelihood.jl")
 include("interfaces.jl")
 include("misc.jl")
 include("predict.jl")
-include("priors.jl")
 include("read.jl")
-include("evaluate.jl")
 
 export get_local_ancestries
+export get_local_ancestries2
 
 end

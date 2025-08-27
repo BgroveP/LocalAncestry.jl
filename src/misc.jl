@@ -1,4 +1,6 @@
 
+# Old
+
 function vvToV(x)
     # Initialize an empty Vector{Int64} to store the result
     flattened_vector = Int64[]
@@ -15,12 +17,12 @@ function vvToV(x)
     return flattened_vector
 end
 
+# OLD END
+
+
 function haplotypeOrigins(i::Vector{String}, o::DataFrames.DataFrame)
     x = DataFrames.DataFrame(; individual=repeat(i; inner=2))
     y = string.(DataFrames.leftjoin(x, o; on="individual")[!, "population"])
-
-    # Asserts
-    assertVector(y, "The vector with origins of reference individuals")
 
     # Return
     return y
@@ -131,4 +133,13 @@ function scroll!(s::IOStream, c::UInt8)
         seek(s, position(s) + 1)
     end
     return nothing
+end
+
+
+function string2UInt8(s::AbstractString)
+    o = Vector{UInt8}(undef, length(s))
+    for (i, c) in enumerate(s)
+        o[i] = UInt8(c)
+    end
+    return o
 end
