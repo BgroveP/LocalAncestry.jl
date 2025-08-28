@@ -29,106 +29,103 @@ This function infers local ancestries. It is meant as a one-function interface t
 
 """
 function get_local_ancestries(
-    chromosome::Union{Int64,String},
-    referenceVCF::String,
-    targetVCF::String,
-    referenceAncestries::DataFrame;
-    minBlockSize::Int64=5,
-    incrBlockSize::Int64=1,
-    blockCrit::Float64=0.01,
-    minNBCProb::Float64=0.95,
+    chromosome::Union{Int,AbstractString},
+    referencepath::AbstractString,
+    targetpath::AbstractString,
+    ancestries::DataFrame;
+    threshold::Float64=0.01,
+    nbcprob::Float64=0.95,
 )
-
-    # Constants
-    ploidity = 2
-
     ## Read reference haplotype data
     println("Reading reference data")
-    referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
-    referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
-        referenceIndividuals, referenceAncestries
-    )
+    refdata, refloci, refind = readVCF(referencepath, chromosome)
+    refancestries = haplotype_ancestries(refind, ancestries)
 
     # Get population information
     println("Getting population information")
-    populations = unique(referenceAncestriesVector)
-    popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
+    popDict = get_pop_dict(refancestries)
 
     # Get haplotype library
     println("Constructing haplotype blocks")
-    haplotypeLibrary = LocalAncestry.getHaploBlocks(
-        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict)
+    library = get_haplotype_library(refdata, popDict, threshold)
 
     # Load target haplotype data
     println("Reading target data")
-    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
-
-    # Estimating Local ancestries
-    println("Estimating local ancestries")
-    postProb, postClass, classDict, probDict = lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
-
-    # Return
-    return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
-end
-
-function lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, nPopulations::Int, ploidity)
-
-    # Predict
-    println(" - Predict initial ancestries")
-    postProb, probDict, probRowdict = predict(haplotypeLibrary, targetData, targetIndividuals, nPopulations, ploidity)
-
-    # Assign certain
-    println(" - Assign certain ancestries")
-    postClass, classDict = assignCertain(postProb, nPopulations, ploidity, targetIndividuals, minNBCProb)
-
-    # Assign2
-    println(" - Predict final ancestries")
-    assign_missing!(postProb, postClass, nPopulations, probRowdict, ploidity)
-
-    return postProb, postClass, classDict, probDict
-end
-
-
-function get_local_ancestries2(
-    chromosome::Union{Int64,String},
-    referenceVCF::String,
-    targetVCF::String,
-    referenceAncestries::DataFrame;
-    minBlockSize::Int64=5,
-    incrBlockSize::Int64=1,
-    blockCrit::Float64=0.01,
-    minNBCProb::Float64=0.95,
-)
-
-    # Constants
-    ploidity = 2
-
-    ## Read reference haplotype data
-    println("Reading reference data")
-    referenceData, _, referenceIndividuals = LocalAncestry.readVCF2(referenceVCF, chromosome)
-    referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
-        string.(referenceIndividuals), referenceAncestries
-    )
-
-    # Get population information
-    println("Getting population information")
-    populations = unique(referenceAncestriesVector)
-    popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
-
-
-    # Get haplotype library
-    println("Constructing haplotype blocks")
-    haplotypeLibrary = LocalAncestry.getHaploBlocks(
-        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict)
-
-    # Load target haplotype data
-    println("Reading target data")
-    targetData, _, targetIndividuals = LocalAncestry.readVCF2(targetVCF, chromosome)
+    targetdata, targetloci, targetind = readVCF(targetpath, chromosome)
 
     # Estimating Local ancestries
     println("Estimating local ancestries")
     postProb, postClass, classDict, probDict = LocalAncestry.lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
 
     # Return
-    return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
+    #return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
 end
+
+@benchmark get_local_ancestries(22, referencepath, targetpath, ancestries)
+
+@time assign(library, targetdata, targetind, nbcprob, popDict)
+@time assign2(library, targetdata, targetind, nbcprob, popDict)
+
+function assign2(library, targetdata, targetind, nbcprob, popDict)
+
+    # Split into worker threads
+    nchunks = 100
+    chunks = vecsplit(targetind, nchunks)
+    readlock = ReentrantLock()
+    writelock = ReentrantLock()
+    blocks = sort(UnitRange.(keys(library)))
+    nloci = size(targetdata, 2)
+    inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
+    ancestries = zeros(Int8, size(targetdata, 1), length(blocks))
+    chunkends = PLOIDITY * cumsum(length.(chunks))
+    chunkstarts = [1; [i + 1 for i in chunkends[1:(end-1)]]]
+    Threads.@threads for _ in 1:Threads.nthreads()
+
+        # Create workvectors
+
+        if length(chunks) == 0
+            break
+        end
+        
+        @lock readlock individuals = popfirst!(chunks)
+
+        haplotype = zeros(Int8, nloci)
+        probabilities = zeros(Float64, length(keys(popDict)), length(blocks))
+        ancestry = zeros(Int8, length(blocks))
+        internal_ancestries = zeros(Int8, PLOIDITY * length(individuals), length(blocks))
+        chunki = findfirst(individuals[1] .== targetind)
+        for (i, ind) in enumerate(individuals)
+            for h in 1:PLOIDITY
+                # Get probability and initial assignment
+                haplotyperow = PLOIDITY * inddict[ind] - abs(h - 2)
+                haplotype = copy(targetdata[haplotyperow, :])
+                for (ib, b) in enumerate(blocks)
+                    if haskey(library[b], haplotype[b])
+                        probabilities[:, ib] = library[b][haplotype[b]]
+
+                        if any(probabilities[:, ib] .>= nbcprob)
+                            _, ancestry[ib] = findmax(probabilities[:, ib])
+                        else
+                            ancestry[ib] = 0
+                        end
+                    else
+                        probabilities[:, ib] .= 0.0
+                    end
+                end
+                # Assign missing
+                if any(ancestry .> 0)
+                else
+                    println(ind, "\t", h)
+                end
+                ## Allocate to internal memory
+                internal_ancestries[i, :] = ancestry
+            end
+
+        end
+        # Allocate to common memory
+        @lock writelock ancestries[chunkstarts[chunki]:chunkends[chunki], :] = internal_ancestries
+    end
+
+    return ancestries
+end
+

@@ -1,32 +1,47 @@
 
-# Old
-
-function vvToV(x)
-    # Initialize an empty Vector{Int64} to store the result
-    flattened_vector = Int64[]
-
-    # Iterate over each vector of ranges
-    for range_vector in x
-        # Iterate over each range in the current vector
-        for range in range_vector
-            # Append each integer in the range to the flattened vector
-            append!(flattened_vector, collect(range))
-        end
-    end
-
-    return flattened_vector
+# Used
+function haplotype_ancestries(i::Vector{String}, o::DataFrame)
+    x = DataFrames.DataFrame(; individual=repeat(i; inner=2))
+    return string.(DataFrames.leftjoin(x, o; on="individual")[!, "population"])
 end
 
-# OLD END
 
-
-function haplotypeOrigins(i::Vector{String}, o::DataFrames.DataFrame)
-    x = DataFrames.DataFrame(; individual=repeat(i; inner=2))
-    y = string.(DataFrames.leftjoin(x, o; on="individual")[!, "population"])
-
-    # Return
+function get_pop_dict(x)
+    y = Dict{String,Vector{Int64}}()
+    for i in unique(x)
+        y[i] = findall(i .== x)
+    end
     return y
 end
+
+function mean(x)
+    return sum(x) / length(x)
+end
+
+
+function string2UInt8(s::AbstractString)
+    o = Vector{UInt8}(undef, length(s))
+    for (i, c) in enumerate(s)
+        o[i] = UInt8(c)
+    end
+    return o
+end
+
+
+function vecsplit(x::Vector, n::Int)
+    y = Vector{typeof(x)}(undef, n)
+    for i in 1:length(x)
+        if i <= n
+            y[i] = [x[i]]
+        else
+            z = (i % n) == 0 ? n : i % n 
+            push!(y[z],x[i])
+        end
+    end
+    return y
+end
+
+# Not used
 
 function rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0)
     (first(rObject)+firstInc-firstDec):(last(rObject)+lastInc-lastDec)
@@ -79,14 +94,6 @@ function rangeFromString(x)
     return range
 end
 
-function getPopulationDictionary(x)
-    y = Dict{String,Vector{Int64}}()
-    for i in unique(x)
-        y[i] = findall(i .== x)
-    end
-    return y
-end
-
 function alleleFrequencies(x, y)
     pops = getPopulations(y)
     p = zeros(Float32, size(x, 2), length(pops))
@@ -123,23 +130,4 @@ end
 
 function mean(x)
     return sum(x) / length(x)
-end
-
-function scroll!(s::IOStream, c::UInt8)
-    while isopen(s) && !eof(s) && (peek(s) != c)
-        seek(s, position(s) + 1)
-    end
-    if isopen(s) && !eof(s)
-        seek(s, position(s) + 1)
-    end
-    return nothing
-end
-
-
-function string2UInt8(s::AbstractString)
-    o = Vector{UInt8}(undef, length(s))
-    for (i, c) in enumerate(s)
-        o[i] = UInt8(c)
-    end
-    return o
 end

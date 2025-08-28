@@ -7,13 +7,13 @@ using Tables
 using VariantCallFormat
 
 # Constants
-
+READLINE_BUFFER_SIZE = 10000
+PLOIDITY = 2
 
 # Write your package code here.
 include("assignMissing.jl")
 include("checks.jl")
 include("haplotypeLibrary.jl")
-include("informativeness.jl")
 include("interfaces.jl")
 include("misc.jl")
 include("predict.jl")
