@@ -38,84 +38,69 @@ function get_local_ancestries(
 )
     ## Read reference haplotype data
     println("Reading reference data")
-    refdata, refloci, refind = readVCF(referencepath, chromosome)
-    refancestries = haplotype_ancestries(refind, ancestries)
+    refdata, refloci, refind = LocalAncestry.readVCF(referencepath, chromosome)
+    refancestries = LocalAncestry.haplotype_ancestries(refind, ancestries)
 
     # Get population information
     println("Getting population information")
-    popDict = get_pop_dict(refancestries)
+    popDict = LocalAncestry.LocalAncestry.get_pop_dict(refancestries)
 
     # Get haplotype library
     println("Constructing haplotype blocks")
-    library = get_haplotype_library(refdata, popDict, threshold)
+    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold)
 
     # Load target haplotype data
     println("Reading target data")
-    targetdata, targetloci, targetind = readVCF(targetpath, chromosome)
+    targetdata, targetloci, targetind = LocalAncestry.readVCF(targetpath, chromosome)
 
     # Estimating Local ancestries
     println("Estimating local ancestries")
-    postProb, postClass, classDict, probDict = LocalAncestry.lai(haplotypeLibrary, targetData, targetIndividuals, minNBCProb, length(popDict)::Int, ploidity)
-
-    # Return
-    #return postProb, postClass, haplotypeLibrary, keys(popDict), classDict, probDict
+    return assign2(library, targetdata, targetind, nbcprob, popDict)
 end
-
-@benchmark get_local_ancestries(22, referencepath, targetpath, ancestries)
-
-@time assign(library, targetdata, targetind, nbcprob, popDict)
-@time assign2(library, targetdata, targetind, nbcprob, popDict)
 
 function assign2(library, targetdata, targetind, nbcprob, popDict)
 
     # Split into worker threads
-    nchunks = 100
-    chunks = vecsplit(targetind, nchunks)
-    readlock = ReentrantLock()
-    writelock = ReentrantLock()
+    chunks = LocalAncestry.vecsplit(targetind, NCHUNKS)
+    npopulations = length(keys(popDict))
     blocks = sort(UnitRange.(keys(library)))
-    nloci = size(targetdata, 2)
+
     inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
     ancestries = zeros(Int8, size(targetdata, 1), length(blocks))
     chunkends = PLOIDITY * cumsum(length.(chunks))
     chunkstarts = [1; [i + 1 for i in chunkends[1:(end-1)]]]
-    Threads.@threads for _ in 1:Threads.nthreads()
 
-        # Create workvectors
+    # Locks
+    writelock = ReentrantLock()
 
-        if length(chunks) == 0
-            break
-        end
-        
-        @lock readlock individuals = popfirst!(chunks)
+    # Do work
+    Threads.@threads for c in 1:NCHUNKS
 
-        haplotype = zeros(Int8, nloci)
+        # Internal initialization
+        default_probabilities = repeat([1], npopulations) ./ npopulations
+        individuals = chunks[c]
         probabilities = zeros(Float64, length(keys(popDict)), length(blocks))
         ancestry = zeros(Int8, length(blocks))
         internal_ancestries = zeros(Int8, PLOIDITY * length(individuals), length(blocks))
-        chunki = findfirst(individuals[1] .== targetind)
         for (i, ind) in enumerate(individuals)
             for h in 1:PLOIDITY
-                # Get probability and initial assignment
-                haplotyperow = PLOIDITY * inddict[ind] - abs(h - 2)
-                haplotype = copy(targetdata[haplotyperow, :])
-                for (ib, b) in enumerate(blocks)
-                    if haskey(library[b], haplotype[b])
-                        probabilities[:, ib] = library[b][haplotype[b]]
+                ancestry .= 0
 
-                        if any(probabilities[:, ib] .>= nbcprob)
-                            _, ancestry[ib] = findmax(probabilities[:, ib])
-                        else
-                            ancestry[ib] = 0
-                        end
-                    else
-                        probabilities[:, ib] .= 0.0
+                haplotyperow = PLOIDITY * inddict[ind] - abs(h - 2)
+                haplotype = @view targetdata[haplotyperow, :]
+
+                for (ib, b) in enumerate(blocks)
+                    probabilities[:, ib] = get(library[b], haplotype[b],default_probabilities)
+
+                    if any(probabilities[:, ib] .>= nbcprob)
+                        _, ancestry[ib] = findmax(probabilities[:, ib])
                     end
                 end
                 # Assign missing
                 if any(ancestry .> 0)
+                    assign_missing2!(probabilities, ancestry)
                 else
-                    println(ind, "\t", h)
+                    println("Individual: ", ind, ", haplotype: ", h, " was not assigned")
                 end
                 ## Allocate to internal memory
                 internal_ancestries[i, :] = ancestry
@@ -123,9 +108,87 @@ function assign2(library, targetdata, targetind, nbcprob, popDict)
 
         end
         # Allocate to common memory
-        @lock writelock ancestries[chunkstarts[chunki]:chunkends[chunki], :] = internal_ancestries
+        @lock writelock ancestries[chunkstarts[c]:chunkends[c], :] = internal_ancestries
     end
 
     return ancestries
 end
 
+
+function assign_missing2!(probabilities, ancestry)
+    unassigned = ancestry .== 0
+    assigned = .~unassigned
+    pos = 1
+    a1::Int = 1
+    a2::Union{Int,Nothing} = 1
+    notdone = any(unassigned)
+    while notdone
+        u = findfirst(unassigned[pos:end]) + pos - 1
+        a1 = u == pos ? findfirst(assigned[pos:end]) + pos - 1 : u - 1
+        if a1 > u
+            ancestry[u:(a1-1)] .= ancestry[a1]
+            pos = a1
+            notdone = any(unassigned[pos:end])
+        else
+            a2 = findfirst(assigned[u:end])
+            if isnothing(a2)
+                ancestry[u:end] .= ancestry[a1]
+                notdone = false
+            else
+                a2 = a2 + u - 1
+                if ancestry[a1] == ancestry[a2]
+                    ancestry[a1:a2] .= ancestry[a1]
+                else
+                    hmm_assign2!(probabilities, ancestry, a1:a2)
+                end
+                pos = a2
+                notdone = any(unassigned[pos:end])
+            end
+        end
+    end
+end
+
+
+
+
+function hmm_assign2!(probabilities, ancestry, columns)
+    # Initialize
+    initialAssignments = ancestry[[first(columns), last(columns)]]
+    nBlocks = length(columns)
+    tmpmat = zeros(Float64, 2, nBlocks)
+    forward = zeros(Float64, 2, nBlocks)
+    backward = zeros(Float64, 2, nBlocks)
+
+    # Forward
+    for i in 1:nBlocks
+        if i == 1
+            tmpmat[:, i] = [1.00, 0.0]
+        elseif i == nBlocks
+            tmpmat[:, i] = [0.0, 1.00]
+        else
+            tmpmat[:, i] = probabilities[initialAssignments, columns[i]]
+        end
+        tmpmat[:, i] = tmpmat[:, i] ./ sum(tmpmat[:, i])
+    end
+
+    # HMM
+    for i in 1:nBlocks
+        ib = nBlocks - i + 1
+        if i == 1
+            forward[:, i] = tmpmat[:, 1]
+            backward[:, ib] = tmpmat[:, ib]
+        else
+            for j in 1:2
+                forward[j, i] = tmpmat[j, i] * (forward[j, i-1] * (1 - HMM_STATECHANGE_PROB) + forward[(2:-1:1)[j], i-1] * HMM_STATECHANGE_PROB)
+                backward[j, ib] = tmpmat[j, ib] * (backward[j, ib+1] * (1 - HMM_STATECHANGE_PROB) + backward[(2:-1:1)[j], ib+1] * HMM_STATECHANGE_PROB)
+            end
+            forward[:, i] = forward[:, i] ./ sum(forward[:, i])
+            backward[:, ib] = backward[:, ib] ./ sum(backward[:, ib])
+        end
+    end
+
+    #Viterby assignment
+    ancestry[columns] = initialAssignments[[last(i) for i in findmax.(eachcol(forward .* backward))]]
+
+    return nothing
+end

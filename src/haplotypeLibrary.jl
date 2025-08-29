@@ -5,16 +5,16 @@ function get_unique_haplotypes!(data::Matrix{Int8}, m::Int, v::Vector{Int}, offs
         if c == 1
             v .= data[:, c+offset] .+ 1
         end
-            j::Int = 1
-            for i in eachindex(v)
-                if haskey(hapDict, (data[i, c+offset], v[i]))
-                    v[i] = hapDict[(data[i, c+offset], v[i])]
-                else
-                    get!(hapDict, (data[i, c+offset], v[i]), j)
-                    v[i] = j
-                    j = j + 1
-                end
+        j::Int = 1
+        for i in eachindex(v)
+            if haskey(hapDict, (data[i, c+offset], v[i]))
+                v[i] = hapDict[(data[i, c+offset], v[i])]
+            else
+                get!(hapDict, (data[i, c+offset], v[i]), j)
+                v[i] = j
+                j = j + 1
             end
+        end
     end
 end
 
@@ -35,64 +35,74 @@ function get_haplotype_frequencies(data, wv, p, bstart, bend)
 
 end
 
+function get_haplolib_from_blocks(block, refdata, popDict)
 
-function get_haplotype_library(data::Matrix{Int8}, popDict::Dict{String,Vector{Int}}, threshold)
+    refview = @view refdata[:, block]
+    V = unique(refview, dims=1)
+    nunique = size(V, 1)
+    tmpdict = Dict{Array{Int8},Int}(eachrow(V) .=> 1:nunique)
+    countmat = zeros(Float64, nunique, length(keys(popDict))) .+ 0.000000001
 
-    # Initialize
-    maxchunk = 0.02
-    nloci = size(data, 2)
-    lociperchunk = Int(ceil(nloci * maxchunk))
-    nhaplotypes = Dict{String,Int}(key => length(value) for (key, value) in popDict)
-    writelock = ReentrantLock()
-    claimlock = ReentrantLock()
-    chunks = [[(1+(i-1)*lociperchunk):min(nloci, i * lociperchunk) for i in 1:50]; repeat([0:0], inner = Threads.nthreads())]
-
-    # Output container
-    haploLib = Dict{UnitRange{Int},Dict{Vector{Int8},Vector{Float64}}}()
-    haploLib.slots = zeros(Int8, Int(ceil(nloci / 10)))
-
-    Threads.@threads for _ in 1:Threads.nthreads()
-        chunk = 0:0
-        @lock claimlock chunk = popfirst!(chunks)
-        if chunk == 0:0
-            break
+    # Calculate IA
+    for (popi, pop) in enumerate(keys(popDict))
+        for h in 1:nunique
+            countmat[h, popi] = sum(eachrow(refview[popDict[pop], :]) .== [V[h, :]])
         end
-
-        tmpdict = Dict{UnitRange{Int},Dict{Vector{Int8},Vector{Float64}}}()
-        bstart = first(chunk)
-        bend = bstart
-
-        IA = zeros(Float64, 2)
-        wv = zeros(Int, sum(values(nhaplotypes)))
-        countmat = zeros(Float64, sum(values(nhaplotypes)), length(keys(popDict)))
-
-        while bend <= last(chunk)
-            get_unique_haplotypes!(data, bend - bstart + 1, wv, bstart - 1)
-
-            if bstart == bend
-                IA[1] = 0.00000000001
-            end
-
-            IA[2] = bend == last(chunk) ? 0.0 : compute_IA(wv, popDict, countmat, nhaplotypes)
-            
-            if (IA[1] == IA[2]) | (log(IA[2] / IA[1]) < threshold) | (bend == (last(chunk)))
-                get_unique_haplotypes!(data, max(1, bend - bstart), wv, bstart - 1)
-                counts, dict = get_haplotype_frequencies(data, wv, popDict, bstart, max(bstart, bend - 1))
-                get!(tmpdict, bstart:max(bstart, bend - 1), get_haplotype_dictionary(counts, dict))
-                bstart = max(bend, bstart + 1)
-                bend = bstart
-            else
-                    IA[1] = IA[2]
-                bend = bend + 1
-            end
-
-        end
-
-        @lock writelock merge!(haploLib, tmpdict)
+        countmat[:, popi] = countmat[:, popi] ./ length(popDict[pop])
     end
-    return haploLib
+
+    return Dict{Vector{Int8},Vector{Float64}}(keys(tmpdict) .=> eachrow(countmat) ./ sum.(eachrow(countmat)))
 end
 
+function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vector{Int}}, threshold::Float64)
+
+    # Initialize
+    ## Chunks
+    nloci::Int = size(refdata, 2)
+    chunks::Vector{UnitRange} = LocalAncestry.vecsplit(1:nloci, NCHUNKS)
+    nhaplotypes::Int = size(refdata, 1)
+    nhaplotypesperblock::Vector{Int} = length.(values(popDict))
+    npopulations::Int = length(keys(popDict))
+    blocks = Vector{UnitRange}()
+
+    ## Locks
+    writelock = ReentrantLock()
+    readlock = ReentrantLock()
+
+    # Work
+    @threads for i in 1:NCHUNKS
+
+        # Internal initialize
+        wv = zeros(Int, nhaplotypes)
+        countmat = zeros(Float64, nhaplotypes, npopulations)
+        p_bar_v = zeros(Float64, nhaplotypes)
+
+        # Do work until there are no chunks left
+        chunk::UnitRange = chunks[i]
+
+        internal_blocks = LocalAncestry.get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
+
+        @lock writelock push!(blocks, internal_blocks...)
+
+    end
+
+    # Create 
+    haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}()
+    blockchunks = LocalAncestry.vecsplit(blocks, NCHUNKS)
+
+    @threads for i in 1:NCHUNKS
+        blockchunk::Vector{UnitRange} = [0:0]
+        blockchunk = blockchunks[i]
+
+        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => LocalAncestry.get_haplolib_from_blocks(block, refdata, popDict) for block in blockchunk)
+        @lock writelock merge!(haploLib, internal_haploLib)
+
+
+    end
+
+    # Get 
+    return haploLib
+end
 
 function compute_IA(wv::Vector{Int}, p, countmat, nhaplotypes)
 
@@ -105,16 +115,81 @@ function compute_IA(wv::Vector{Int}, p, countmat, nhaplotypes)
         countmat[1:n, popi] = countmat[1:n, popi] ./ nhaplotypes[pop]
     end
 
-    p_bar_v = mean.(eachrow(countmat[1:n,:]))
+    p_bar_v = mean.(eachrow(countmat[1:n, :]))
 
-    IA = sum(sum(countmat[1:n,:] .* log.(countmat[1:n,:])) ./ length(keys(p))) - sum(p_bar_v .* log.(p_bar_v))
+    IA = sum(sum(countmat[1:n, :] .* log.(countmat[1:n, :])) ./ length(keys(p))) - sum(p_bar_v .* log.(p_bar_v))
     return IA
 end
+
+function compute_IA2(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, n)
+    countmat[1:n, :] .= NEARZERO_FLOAT
+    for (popi, pop) in enumerate(keys(popDict))
+        for i in values(popDict[pop])
+            countmat[wv[i], popi] += 1
+        end
+        countmat[1:n, popi] = countmat[1:n, popi] ./ nhaplotypesperblock[popi]
+    end
+    p_bar_v[1:n] .= mean.(eachrow(countmat[1:n, :]))
+    return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
+end
+
 
 function get_haplotype_dictionary(countmat, tmpdict)
 
     countmat = countmat ./ sum.(eachrow(countmat))
 
-    return Dict{Vector{Int8}, Vector{Float64}}(keys(tmpdict) .=> eachrow(countmat))
+    return Dict{Vector{Int8},Vector{Float64}}(keys(tmpdict) .=> eachrow(countmat))
 end
 
+function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vector{Int}, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
+    # Initialize
+    o = Vector{UnitRange}(undef, n)
+    IA1::Float64 = 0.0
+    IA2::Float64 = 0.0
+    hapDict = Dict{Tuple{Int8,Int},Int}()
+    sizehint!(hapDict, n)
+    j::Int = 1
+    thisi = firsti
+    oj = 1
+
+    # Do work: 
+    for l in 1:n
+        j = 1
+        # If first locus, insert haplotypes
+        if thisi == (firsti + l - 1)
+
+            v .= refdata[:, thisi] .+ 1
+            IA1 = compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2)
+
+            if IA1 < NEARZERO_FLOAT
+                thisi = firsti + l
+            end
+        else
+            for i in eachindex(v)
+                if haskey(hapDict, (refdata[i, l+firsti], v[i]))
+                    v[i] = hapDict[(refdata[i, l+firsti], v[i])]
+                else
+                    get!(hapDict, (refdata[i, l+firsti], v[i]), j)
+                    v[i] = j
+                    j = j + 1
+                end
+            end
+            IA2 = compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)))
+            empty!(hapDict)
+            if (log(IA2 / IA1) > threshold)
+                IA1 = IA2
+            else
+                o[oj] = thisi:(firsti+l-1)
+                thisi = firsti + l
+                oj = oj + 1
+            end
+        end
+    end
+
+    if last(o[oj-1]) < (n + firsti - 1)
+        o[oj] = (last(o[oj-1])+1):(n+firsti-1)
+        oj = oj + 1
+    end
+
+    return o[1:(oj-1)]
+end

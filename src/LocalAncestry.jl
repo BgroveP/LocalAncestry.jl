@@ -5,10 +5,14 @@ using GZip
 using OrderedCollections
 using Tables
 using VariantCallFormat
+using Base.Threads
 
 # Constants
 READLINE_BUFFER_SIZE = 10000
 PLOIDITY = 2
+NCHUNKS = nthreads()
+NEARZERO_FLOAT::Float64 = 0.00000000000001
+HMM_STATECHANGE_PROB::Float64 = NEARZERO_FLOAT
 
 # Write your package code here.
 include("assignMissing.jl")

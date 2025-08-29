@@ -28,15 +28,15 @@ function string2UInt8(s::AbstractString)
 end
 
 
-function vecsplit(x::Vector, n::Int)
+
+function vecsplit(x::Union{UnitRange{Int}, Vector}, n::Int)
     y = Vector{typeof(x)}(undef, n)
-    for i in 1:length(x)
-        if i <= n
-            y[i] = [x[i]]
-        else
-            z = (i % n) == 0 ? n : i % n 
-            push!(y[z],x[i])
-        end
+    z::Int = length(x)
+    r::Int = z
+    for i in eachindex(y)
+        thistake = ((z-r + 1):z)[1:(Int(ceil(r / (n+1-i))))]
+        y[i] = x[thistake]
+        r = r - length(thistake)
     end
     return y
 end
@@ -126,8 +126,4 @@ function calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
     end
 
     return LL
-end
-
-function mean(x)
-    return sum(x) / length(x)
 end
