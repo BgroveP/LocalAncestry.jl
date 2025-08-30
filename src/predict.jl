@@ -54,7 +54,7 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
             end
         end
         # Allocate to common memory
-          @lock writelock ancestries[:, chunkstarts[c]:chunkends[c]] = permutedims(internal_ancestries)
+          @lock writelock ancestries[:, chunkstarts[c]:chunkends[c]] = internal_ancestries
     end
 
     return ancestries
