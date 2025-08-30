@@ -8,7 +8,7 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
     chunks = vecsplit(targetind, NCHUNKS)
     npopulations = length(keys(popDict))
     blocks = sort(UnitRange.(keys(library)))
-
+    ancestries = zeros(Int8, size(targetdata,1), size(targetdata,2))
     inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
 
     # Locks
@@ -51,7 +51,7 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
             end
         end
         # Allocate to common memory
-          @lock writelock ancestries[chunkstarts[c]:chunkends[c], :] = internal_ancestries
+          @lock writelock ancestries[:, chunkstarts[c]:chunkends[c]] = internal_ancestries
     end
 
     return ancestries
