@@ -41,6 +41,29 @@ function vecsplit(x::Union{UnitRange{Int}, Vector}, n::Int)
     return y
 end
 
+# Taken from StatsBase. DOublecheck license
+function breapeat(vals::AbstractVector{T}, lens::AbstractVector{<:Integer}) where T
+    m = length(vals)
+    mlens = length(lens)
+    mlens == m || throw(DimensionMismatch(
+                        "number of vals ($m) does not match the number of lens ($mlens)"))
+    n = sum(lens)
+    n >= 0 || throw(ArgumentError("lengths must be non-negative"))
+
+    r = Vector{T}(undef, n)
+    p = 0
+    @inbounds for i = 1 : m
+        j = lens[i]
+        j >= 0 || throw(ArgumentError("lengths must be non-negative"))
+        v = vals[i]
+        while j > 0
+            r[p+=1] = v
+            j -=1
+        end
+    end
+    return r
+end
+
 # Not used
 
 function rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0)
@@ -127,3 +150,6 @@ function calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
 
     return LL
 end
+
+
+# 

@@ -59,7 +59,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
     # Initialize
     ## Chunks
     nloci::Int = size(refdata, 2)
-    chunks::Vector{UnitRange} = LocalAncestry.vecsplit(1:nloci, NCHUNKS)
+    chunks::Vector{UnitRange} = vecsplit(1:nloci, NCHUNKS)
     nhaplotypes::Int = size(refdata, 1)
     nhaplotypesperblock::Vector{Int} = length.(values(popDict))
     npopulations::Int = length(keys(popDict))
@@ -80,7 +80,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
         # Do work until there are no chunks left
         chunk::UnitRange = chunks[i]
 
-        internal_blocks = LocalAncestry.get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
+        internal_blocks = get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
 
         @lock writelock push!(blocks, internal_blocks...)
 
@@ -88,13 +88,13 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
 
     # Create 
     haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}()
-    blockchunks = LocalAncestry.vecsplit(blocks, NCHUNKS)
+    blockchunks = vecsplit(blocks, NCHUNKS)
 
     @threads for i in 1:NCHUNKS
         blockchunk::Vector{UnitRange} = [0:0]
         blockchunk = blockchunks[i]
 
-        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => LocalAncestry.get_haplolib_from_blocks(block, refdata, popDict) for block in blockchunk)
+        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => get_haplolib_from_blocks(block, refdata, popDict) for block in blockchunk)
         @lock writelock merge!(haploLib, internal_haploLib)
 
 
