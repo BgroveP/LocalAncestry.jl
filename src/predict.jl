@@ -12,7 +12,7 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
     inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
     chunkends = PLOIDITY * cumsum(length.(chunks))
     chunkstarts = [1; [i + 1 for i in chunkends[1:(end-1)]]]
-    
+
     # Locks
     writelock = ReentrantLock()
 
@@ -53,7 +53,7 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
             end
         end
         # Allocate to common memory
-          @lock writelock ancestries[:, chunkstarts[c]:chunkends[c]] = internal_ancestries
+          @lock writelock ancestries[:, chunkstarts[c]:chunkends[c]] = permutedims(internal_ancestries)
     end
 
     return ancestries
