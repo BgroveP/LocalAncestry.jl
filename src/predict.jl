@@ -3,14 +3,16 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
 
     # Transpose haplotype data
     targetdata = permutedims(targetdata)
-
+    out = []
     # Split into worker threads
     chunks = vecsplit(targetind, NCHUNKS)
     npopulations = length(keys(popDict))
     blocks = sort(UnitRange.(keys(library)))
     ancestries = zeros(Int8, size(targetdata,1), size(targetdata,2))
     inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
-
+    chunkends = PLOIDITY * cumsum(length.(chunks))
+    chunkstarts = [1; [i + 1 for i in chunkends[1:(end-1)]]]
+    
     # Locks
     writelock = ReentrantLock()
 
@@ -18,7 +20,7 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
     @threads for c in 1:NCHUNKS
         # Internal initialization
         default_probabilities = repeat([1], npopulations) ./ npopulations
-        individuals = @view chunks[c]
+        individuals = chunks[c]
         probabilities = zeros(Float64, length(keys(popDict)), length(blocks))
         ancestry = zeros(Int8, length(blocks))
         internal_ancestries = zeros(Int8, length(blocks), PLOIDITY * length(individuals))
