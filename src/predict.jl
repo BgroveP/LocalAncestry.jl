@@ -4,11 +4,12 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
     # Transpose haplotype data
     targetdata = permutedims(targetdata)
     out = []
+
     # Split into worker threads
     chunks = vecsplit(targetind, NCHUNKS)
     npopulations = length(keys(popDict))
     blocks = sort(UnitRange.(keys(library)))
-    ancestries = zeros(Int8, size(targetdata,1), size(targetdata,2))
+    ancestries = zeros(Int8, length(blocks), size(targetdata,2))
     inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
     chunkends = PLOIDITY * cumsum(length.(chunks))
     chunkstarts = [1; [i + 1 for i in chunkends[1:(end-1)]]]
