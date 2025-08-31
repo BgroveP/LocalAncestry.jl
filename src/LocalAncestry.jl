@@ -21,7 +21,7 @@ end
 
 # Write your package code here.
 include("checks.jl")
-include("haplotypeLibrary.jl")
+include("library.jl")
 include("interfaces.jl")
 include("misc.jl")
 include("predict.jl")

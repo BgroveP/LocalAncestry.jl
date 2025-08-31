@@ -41,14 +41,17 @@ function get_haplolib_from_blocks(block, refdata, popDict)
     V = unique(refview, dims=1)
     nunique = size(V, 1)
     tmpdict = Dict{Array{Int8},Int}(eachrow(V) .=> 1:nunique)
-    countmat = zeros(Float64, nunique, length(keys(popDict))) .+ 0.000000001
+    countmat = zeros(Float64, nunique, length(keys(popDict))) .+ NEARZERO_FLOAT
 
     # Calculate IA
     for (popi, pop) in enumerate(keys(popDict))
         for h in 1:nunique
             countmat[h, popi] = sum(eachrow(refview[popDict[pop], :]) .== [V[h, :]])
         end
-        countmat[:, popi] = countmat[:, popi] ./ length(popDict[pop])
+    end
+
+    for h in 1:nunique
+        countmat[h, :] = countmat[h, :] ./ sum(countmat[h, :])
     end
 
     return Dict{Vector{Int8},Vector{Float64}}(keys(tmpdict) .=> eachrow(countmat) ./ sum.(eachrow(countmat)))
@@ -59,7 +62,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
     # Initialize
     ## Chunks
     nloci::Int = size(refdata, 2)
-    chunks::Vector{UnitRange} = vecsplit(1:nloci, NCHUNKS)
+    chunks::Vector{UnitRange} = LocalAncestry.vecsplit(1:nloci, NCHUNKS)
     nhaplotypes::Int = size(refdata, 1)
     nhaplotypesperblock::Vector{Int} = length.(values(popDict))
     npopulations::Int = length(keys(popDict))
@@ -67,7 +70,6 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
 
     ## Locks
     writelock = ReentrantLock()
-    readlock = ReentrantLock()
 
     # Work
     @threads for i in 1:NCHUNKS
@@ -80,7 +82,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
         # Do work until there are no chunks left
         chunk::UnitRange = chunks[i]
 
-        internal_blocks = get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
+        internal_blocks = LocalAncestry.get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
 
         @lock writelock push!(blocks, internal_blocks...)
 
@@ -88,13 +90,12 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
 
     # Create 
     haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}()
-    blockchunks = vecsplit(blocks, NCHUNKS)
+    blockchunks = LocalAncestry.vecsplit(blocks, NCHUNKS)
 
     @threads for i in 1:NCHUNKS
-        blockchunk::Vector{UnitRange} = [0:0]
         blockchunk = blockchunks[i]
 
-        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => get_haplolib_from_blocks(block, refdata, popDict) for block in blockchunk)
+        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => LocalAncestry.get_haplolib_from_blocks(block, refdata, popDict) for block in blockchunk)
         @lock writelock merge!(haploLib, internal_haploLib)
 
 
@@ -129,7 +130,7 @@ function compute_IA2(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_
         end
         countmat[1:n, popi] = countmat[1:n, popi] ./ nhaplotypesperblock[popi]
     end
-    p_bar_v[1:n] .= mean.(eachrow(countmat[1:n, :]))
+    p_bar_v[1:n] .= LocalAncestry.mean.(eachrow(countmat[1:n, :]))
     return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
 end
 
@@ -166,10 +167,10 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
             end
         else
             for i in eachindex(v)
-                if haskey(hapDict, (refdata[i, l+firsti], v[i]))
-                    v[i] = hapDict[(refdata[i, l+firsti], v[i])]
+                if haskey(hapDict, (refdata[i, l+firsti-1], v[i]))
+                    v[i] = hapDict[(refdata[i, l+firsti-1], v[i])]
                 else
-                    get!(hapDict, (refdata[i, l+firsti], v[i]), j)
+                    get!(hapDict, (refdata[i, l+firsti-1], v[i]), j)
                     v[i] = j
                     j = j + 1
                 end
@@ -186,7 +187,13 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
         end
     end
 
-    if last(o[oj-1]) < (n + firsti - 1)
+    # If no block was assigned
+    if  ~any(isassigned(o))
+        o[1] = firsti:(firsti+n-1)
+        oj = 2
+    end
+
+    if (last(o[oj-1]) < (n + firsti - 1))
         o[oj] = (last(o[oj-1])+1):(n+firsti-1)
         oj = oj + 1
     end

@@ -38,20 +38,20 @@ function get_local_ancestries(
 )
     ## Read reference haplotype data
     println("Reading reference data")
-    refdata, refloci, refind = readVCF(referencepath, chromosome)
-    refancestries = haplotype_ancestries(refind, ancestries)
+    refdata, refloci, refind = LocalAncestry.readVCF(referencepath, chromosome)
+    refancestries = LocalAncestry.haplotype_ancestries(refind, ancestries)
 
     # Get population information
     println("Getting population information")
-    popDict = get_pop_dict(refancestries)
+    popDict = LocalAncestry.get_pop_dict(refancestries)
 
     # Get haplotype library
     println("Constructing haplotype blocks")
-    library = get_haplotype_library(refdata, popDict, threshold)
+    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold)
 
     # Load target haplotype data
     println("Reading target data")
-    targetdata, targetloci, targetind = readVCF(targetpath, chromosome)
+    targetdata, targetloci, targetind = LocalAncestry.readVCF(targetpath, chromosome)
 
     # Estimating Local ancestries
     println("Estimating local ancestries")

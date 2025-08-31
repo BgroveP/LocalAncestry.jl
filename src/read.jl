@@ -3,13 +3,13 @@ function readVCF(path::AbstractString, c::Union{AbstractString,Int})
 
     # Initialize
     this_chromosome = ["", "chr"] .* string.([c, c])
-    chromosome = string2UInt8.(this_chromosome)
+    chromosome = LocalAncestry.string2UInt8.(this_chromosome)
     chromosome_char_lengths = length.(chromosome)
 
-    loci = getVCFloci(path, c)
-    individuals = getVCFindividuals(path)
+    loci = LocalAncestry.getVCFloci(path, c)
+    individuals = LocalAncestry.getVCFindividuals(path)
     x = zeros(Int8, 2 * length(individuals), length(loci))
-    file = vcf_open(path)
+    file = LocalAncestry.vcf_open(path)
 
     locusdict = Dict{String,Int}(loci .=> 1:length(loci))
 
@@ -27,11 +27,14 @@ function readVCF(path::AbstractString, c::Union{AbstractString,Int})
     pos3::Int = 1
 
     # Read file until the end of file
-    while readline!(file, buffer)
-
+    line = 0
+    while LocalAncestry.readline!(file, buffer)
+        line = line + 1
+        if all(buffer .== UInt8('a'))
+            break
+        end
         # Skip all headers
         if buffer[1] != UInt8('#')
-
             # Check if the line contains the focal chromosome
             chromosome_match .= true
             for k in eachindex(chromosome_match)
@@ -48,10 +51,11 @@ function readVCF(path::AbstractString, c::Union{AbstractString,Int})
 
             # If line contains focal chromosome, read haplotypes
             if any(chromosome_match)
-                vcfrow_haplotype(buffer, tmplocus, pos1, pos2, pos3)
-                x[:, locusdict[(vcfrow_locus(buffer, pos1, pos2))]] = tmplocus
+                LocalAncestry.vcfrow_haplotype(buffer, tmplocus, pos1, pos2, pos3)
+                x[:, locusdict[(LocalAncestry.vcfrow_locus(buffer, pos1, pos2))]] = tmplocus
             end
         end
+        buffer .= UInt8('a')
     end
 
     # Return
@@ -69,28 +73,30 @@ function getVCFindividuals(path::AbstractString)
     # Get loci
     while readline!(file, bufvec)
         if bufvec[2] != UInt8('#')
-            return split(join(Char.(bufvec[1:(findfirst(bufvec .== UInt8('\n')) - 1)]), ""), '\t')[10:end]
+            return replace.(split(join(Char.(bufvec[1:(findfirst(bufvec .== UInt8('\n')) - 1)]), ""), '\t')[10:end], ['\r'].=> "")
         end
     end
+    close(file)
     return [""]
 end
 
 function readline!(s::GZip.GZipStream, b::Vector{UInt8})
     
     # Initialize 
-    p::Int = 1
+    p::Union{Int,Nothing} = 1
     
     # Read until we either hit the end of the file, or a newline
     while !eof(s)
         gzgets(s, pointer(b) + p - 1, length(b) - p + 1) # Reads into buffer
-        p = findnext(x -> x == UInt8('\0'), b, p)::Int # Finds the \0 symbol which marks the end of the input read above
-        if b[p-1] == UInt8('\n') # Did we find a newline?
+        p = findnext(x -> x == UInt8('\0'), b, p) # Finds the \0 symbol which marks the end of the input read above
+        if ~isnothing(p) && (b[p-1] == UInt8('\n')) # Did we find a newline?
             return true # yes: stop here with success
         else
             resize!(b, length(b) + READLINE_BUFFER_SIZE) # no: grow the vector and go again
         end
     end
     # Reached EOF without finding a newline
+
     return false
 end
 
@@ -108,6 +114,7 @@ function readline!(s::IOStream, b::Vector{UInt8})
         end
         
     end
+
     return false
 end
 
@@ -133,6 +140,7 @@ function getVCFloci(path::AbstractString, c::Union{AbstractString,Int})
             end
         end
     end
+    close(file)
 
     return loci
 end

@@ -1,18 +1,15 @@
 
 function assign(library, targetdata, targetind, nbcprob, popDict)
 
-    # Transpose haplotype data
-    targetdata = permutedims(targetdata)
-    out = []
-
     # Split into worker threads
     chunks = vecsplit(targetind, NCHUNKS)
     npopulations = length(keys(popDict))
     blocks = sort(UnitRange.(keys(library)))
-    ancestries = zeros(Int8, length(blocks), size(targetdata,2))
+    ancestries = zeros(Int8, length(blocks), size(targetdata,1))
     inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
     chunkends = PLOIDITY * cumsum(length.(chunks))
     chunkstarts = [1; [i + 1 for i in chunkends[1:(end-1)]]]
+    default_probabilities = repeat([1], npopulations) ./ npopulations
 
     # Locks
     writelock = ReentrantLock()
@@ -20,23 +17,21 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
     # Do work
     @threads for c in 1:NCHUNKS
         # Internal initialization
-        default_probabilities = repeat([1], npopulations) ./ npopulations
-        individuals = chunks[c]
         probabilities = zeros(Float64, length(keys(popDict)), length(blocks))
         ancestry = zeros(Int8, length(blocks))
-        internal_ancestries = zeros(Int8, length(blocks), PLOIDITY * length(individuals))
-        haplotypecol::Int = 0
+        internal_ancestries = zeros(Int8, length(blocks), PLOIDITY * length(chunks[c]))
+        haplotyperow::Int = 0
         internal_haplotypecol::Int = 0
 
-        for (i, ind) in enumerate(individuals)
+        for (i, ind) in enumerate(chunks[c])
             for h in 1:PLOIDITY
                 ancestry .= 0
-
-                haplotypecol = PLOIDITY * inddict[ind] - abs(h - 2)
+                probabilities .= 0.0
+                haplotyperow = PLOIDITY * inddict[ind] - abs(h - 2)
                 internal_haplotypecol = PLOIDITY * i - abs(h - 2)
 
                 for (ib, b) in enumerate(blocks)
-                    probabilities[:, ib] = get(library[b], targetdata[b, haplotypecol], default_probabilities)
+                    probabilities[:, ib] = get(library[b], targetdata[haplotyperow, b], default_probabilities)
                 end
 
                 for p in 1:npopulations
@@ -108,7 +103,7 @@ function hmm!(ancestry, probabilities, s, e)
     # Viterby
     forward = forward .* backward
 
-    ancestry[workrange2] = last.(findmax.(eachcol(forward)[2:(end-1)]))
+    ancestry[workrange2] = ancestry[[s-1,e]][last.(findmax.(eachcol(forward)[2:(end-1)]))]
     return Nothing
 end
 
