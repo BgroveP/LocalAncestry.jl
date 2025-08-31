@@ -40,7 +40,6 @@ function get_haplolib_from_blocks(block, refdata, popDict)
     refview = @view refdata[:, block]
     V = unique(refview, dims=1)
     nunique = size(V, 1)
-    tmpdict = Dict{Array{Int8},Int}(eachrow(V) .=> 1:nunique)
     countmat = zeros(Float64, nunique, length(keys(popDict))) .+ NEARZERO_FLOAT
 
     # Calculate IA
@@ -54,7 +53,7 @@ function get_haplolib_from_blocks(block, refdata, popDict)
         countmat[h, :] = countmat[h, :] ./ sum(countmat[h, :])
     end
 
-    return Dict{Vector{Int8},Vector{Float64}}(keys(tmpdict) .=> eachrow(countmat) ./ sum.(eachrow(countmat)))
+    return Dict{Vector{Int8},Vector{Float64}}(eachrow(V) .=> eachrow(countmat) ./ sum.(eachrow(countmat)))
 end
 
 function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vector{Int}}, threshold::Float64)
@@ -105,24 +104,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
     return haploLib
 end
 
-function compute_IA(wv::Vector{Int}, p, countmat, nhaplotypes)
-
-    # Get maximum number
-    n = maximum(wv)
-    for (popi, pop) in enumerate(keys(p))
-        for i in 1:n
-            countmat[i, popi] = sum(wv[p[pop]] .== i) .+ 0.00001
-        end
-        countmat[1:n, popi] = countmat[1:n, popi] ./ nhaplotypes[pop]
-    end
-
-    p_bar_v = mean.(eachrow(countmat[1:n, :]))
-
-    IA = sum(sum(countmat[1:n, :] .* log.(countmat[1:n, :])) ./ length(keys(p))) - sum(p_bar_v .* log.(p_bar_v))
-    return IA
-end
-
-function compute_IA2(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, n)
+function compute_IA(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, n)
     countmat[1:n, :] .= NEARZERO_FLOAT
     for (popi, pop) in enumerate(keys(popDict))
         for i in values(popDict[pop])
@@ -134,13 +116,6 @@ function compute_IA2(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_
     return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
 end
 
-
-function get_haplotype_dictionary(countmat, tmpdict)
-
-    countmat = countmat ./ sum.(eachrow(countmat))
-
-    return Dict{Vector{Int8},Vector{Float64}}(keys(tmpdict) .=> eachrow(countmat))
-end
 
 function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vector{Int}, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
     # Initialize
@@ -160,7 +135,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
         if thisi == (firsti + l - 1)
 
             v .= refdata[:, thisi] .+ 1
-            IA1 = LocalAncestry.compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2)
+            IA1 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2)
 
             if IA1 < NEARZERO_FLOAT
                 thisi = firsti + l
@@ -175,7 +150,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
                     j = j + 1
                 end
             end
-            IA2 = LocalAncestry.compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)))
+            IA2 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)))
             empty!(hapDict)
             if (log(IA2 / IA1) > threshold)
                 IA1 = IA2
@@ -188,7 +163,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
     end
 
     # If no block was assigned
-    if  oj == 1
+    if oj == 1
         o[1] = firsti:(firsti+n-1)
         oj = 2
     end
