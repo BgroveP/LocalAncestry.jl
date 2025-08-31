@@ -16,7 +16,7 @@ HMM_STATECHANGE_PROB::Float64 = 0.00001
 
 # Init
 function __init__()
-    NCHUNKS = nthreads()
+    NCHUNKS = nthreads() 
 end
 
 # Write your package code here.

@@ -160,7 +160,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
         if thisi == (firsti + l - 1)
 
             v .= refdata[:, thisi] .+ 1
-            IA1 = compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2)
+            IA1 = LocalAncestry.compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2)
 
             if IA1 < NEARZERO_FLOAT
                 thisi = firsti + l
@@ -175,7 +175,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
                     j = j + 1
                 end
             end
-            IA2 = compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)))
+            IA2 = LocalAncestry.compute_IA2(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)))
             empty!(hapDict)
             if (log(IA2 / IA1) > threshold)
                 IA1 = IA2
@@ -188,7 +188,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
     end
 
     # If no block was assigned
-    if  ~any(isassigned(o))
+    if  oj == 1
         o[1] = firsti:(firsti+n-1)
         oj = 2
     end
