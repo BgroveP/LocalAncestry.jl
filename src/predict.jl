@@ -2,15 +2,16 @@
 function assign(library, targetdata, targetind, nbcprob, popDict)
 
     # Split into worker threads
-    chunks = vecsplit(targetind, NCHUNKS)
+    NCHUNKS = nthreads()
+    chunks = LocalAncestry.vecsplit(targetind, NCHUNKS)
     npopulations = length(keys(popDict))
     blocks = sort(UnitRange.(keys(library)))
-    ancestries = zeros(Int8, length(blocks), size(targetdata,1))
     inddict = Dict{String,Int}(targetind .=> 1:length(targetind))
-    chunkends = PLOIDITY * cumsum(length.(chunks))
-    chunkstarts = [1; [i + 1 for i in chunkends[1:(end-1)]]]
     default_probabilities = repeat([1], npopulations) ./ npopulations
-
+    out = DataFrame(individual=Vector{String}(),
+        haplotype=Vector{Int64}(),
+        block=Vector{UnitRange}(),
+        ancestry=Vector{String}())
     # Locks
     writelock = ReentrantLock()
 
@@ -49,21 +50,25 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
             end
         end
         # Allocate to common memory
-          @lock writelock ancestries[:, chunkstarts[c]:chunkends[c]] = internal_ancestries
+        @lock writelock append!(out, anc_reduce(internal_ancestries, chunks[c], popDict, blocks))
     end
-
-    return ancestries
+    return out
 end
 
-
-function anc_reduce(a::Matrix{UInt8}, i::Vector{String}, popDict, blocks)
+function anc_reduce(a::Matrix{Int8}, i::Vector{String}, popDict, blocks)
     p = string.(keys(popDict))
-    t = vec_reduce.(eachrow(a))
-    o = DataFrame(individuals=breapeat(repeat(i, inner=2), length.(t)),
-        haplotype=breapeat(repeat(collect(1:PLOIDITY), outer=length(i)), length.(t)),
-        blocks=vcat(t...),
+    t = LocalAncestry.vec_reduce.(eachcol(a))
+    o = DataFrame(individual=LocalAncestry.breapeat(repeat(i, inner=2), length.(t)),
+        haplotype=LocalAncestry.breapeat(repeat(collect(1:PLOIDITY), outer=length(i)), length.(t)),
+        block=vcat(t...),
         ancestry="")
-
+    for j in axes(o, 1)
+        jcol = 2 * findfirst(o.individual[j] .== i) - abs(o.haplotype[j] - 2)
+        jrow = first(o.block[j])
+        o.ancestry[j] = a[jrow, jcol] > 0 ? p[a[jrow, jcol]] : ""
+    end
+    o.block = UnitRange.(first.(blocks[first.(o.block)]), last.(blocks[last.(o.block)]))
+    return o
 end
 
 function vec_reduce(v::AbstractVector)
@@ -92,7 +97,7 @@ function hmm!(ancestry, probabilities, s, e)
     forward = copy(probabilities[[ancestry[first(workrange)], ancestry[last(workrange)]], workrange])
     backward = copy(forward)
 
-    for (j,i) in enumerate(looprange)
+    for (j, i) in enumerate(looprange)
         # Forward
         @views forward[:, i] = forward[:, i] .* (forward[:, i-1] .* (1 - HMM_STATECHANGE_PROB) + forward[2:-1:1, i-1] .* HMM_STATECHANGE_PROB)
         # Backward
@@ -103,7 +108,7 @@ function hmm!(ancestry, probabilities, s, e)
     # Viterby
     forward = forward .* backward
 
-    ancestry[workrange2] = ancestry[[s-1,e]][last.(findmax.(eachcol(forward)[2:(end-1)]))]
+    ancestry[workrange2] = ancestry[[s - 1, e]][last.(findmax.(eachcol(forward)[2:(end-1)]))]
     return Nothing
 end
 
@@ -113,13 +118,15 @@ function assign_missing!(probabilities, ancestry)
     e::Union{Nothing,Int} = 1
     n::Int = length(ancestry)
 
-    while (~isnothing(e) & ~isnothing(s)) && (s < n)
+    while (~isnothing(e) & ~isnothing(s)) && (s <= n)
 
         e = findnext(x -> x > 0, ancestry, s)
         if ~isnothing(e)
             probabilities[:, e] .= 0.0
             probabilities[ancestry[e], e] = 1.0
             if (s == 1) & (e > 0)
+                ancestry[s:e] .= ancestry[e]
+            elseif ancestry[s] == ancestry[e]
                 ancestry[s:e] .= ancestry[e]
             else
                 hmm!(ancestry, probabilities, s, e)

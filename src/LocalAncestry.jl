@@ -10,14 +10,9 @@ using Base.Threads
 # Constants
 READLINE_BUFFER_SIZE = 10000
 PLOIDITY = 2
-NCHUNKS = 9
 NEARZERO_FLOAT::Float64 = 0.0000000000001
-HMM_STATECHANGE_PROB::Float64 = 0.00001
-
-# Init
-function __init__()
-    NCHUNKS = nthreads() 
-end
+HMM_STATECHANGE_PROB::Float64 = NEARZERO_FLOAT
+IA_min::Float64 = 0.5
 
 # Write your package code here.
 include("checks.jl")

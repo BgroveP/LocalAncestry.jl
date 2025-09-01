@@ -22,7 +22,7 @@ function get_haplotype_frequencies(data, wv, p, bstart, bend)
 
     nunique = maximum(wv)
     tmpdict = Dict{Array{Int8},Int}(eachrow(data[[findfirst(wv .== i) for i in 1:nunique], bstart:bend]) .=> 1:nunique)
-    countmat = zeros(Float64, nunique, length(keys(p))) .+ 0.000000001
+    countmat = zeros(Float64, nunique, length(keys(p))) .+ NEARZERO_FLOAT
     # Calculate IA
     for (popi, pop) in enumerate(keys(p))
         for h in 1:nunique
@@ -60,6 +60,8 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
 
     # Initialize
     ## Chunks
+    NCHUNKS = nthreads()
+
     nloci::Int = size(refdata, 2)
     chunks::Vector{UnitRange} = LocalAncestry.vecsplit(1:nloci, NCHUNKS)
     nhaplotypes::Int = size(refdata, 1)
@@ -104,7 +106,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
     return haploLib
 end
 
-function compute_IA(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, n)
+function compute_IA(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, n; outtype="all")
     countmat[1:n, :] .= NEARZERO_FLOAT
     for (popi, pop) in enumerate(keys(popDict))
         for i in values(popDict[pop])
@@ -113,9 +115,24 @@ function compute_IA(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_b
         countmat[1:n, popi] = countmat[1:n, popi] ./ nhaplotypesperblock[popi]
     end
     p_bar_v[1:n] .= LocalAncestry.mean.(eachrow(countmat[1:n, :]))
+    if outtype == "all"
+        return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
+    elseif outtype == "min"
+        return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
+    else
+        error("IA specification not valid")
+    end
+end
+
+function IAall(countmat, p_bar_v, npopulations)
     return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
 end
 
+function IAsome(countmat, these)
+    npopulations = length(these)
+    p_bar_v = LocalAncestry.mean.(eachrow(countmat[1:n, these]))
+    return sum(countmat[1:n, these] .* log.(countmat[1:n, these])) / npopulations - sum(p_bar_v .* log.(p_bar_v))
+end
 
 function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vector{Int}, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
     # Initialize
@@ -135,7 +152,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
         if thisi == (firsti + l - 1)
 
             v .= refdata[:, thisi] .+ 1
-            IA1 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2)
+            IA1 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2, outtype = "min")
 
             if IA1 < NEARZERO_FLOAT
                 thisi = firsti + l
@@ -150,9 +167,9 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
                     j = j + 1
                 end
             end
-            IA2 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)))
+            IA2 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)), outtype = "min")
             empty!(hapDict)
-            if (log(IA2 / IA1) > threshold)
+            if (log(IA2 / IA1) > threshold) | (IA2 <= IA_min) 
                 IA1 = IA2
             else
                 o[oj] = thisi:(firsti+l-1)
@@ -168,6 +185,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
         oj = 2
     end
 
+    # If last locus wasnt assigned to a block
     if (last(o[oj-1]) < (n + firsti - 1))
         o[oj] = (last(o[oj-1])+1):(n+firsti-1)
         oj = oj + 1
