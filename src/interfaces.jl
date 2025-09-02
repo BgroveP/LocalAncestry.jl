@@ -36,24 +36,26 @@ function get_local_ancestries(
     threshold::Float64=0.01,
     nbcprob::Float64=0.95,
 )
-    ## Read reference haplotype data
-    println("Reading reference data")
-    refdata, refloci, refind = LocalAncestry.readVCF(referencepath, chromosome)
+    # Read input
+    println("Reading .vcf files")
+    t1 = @spawn LocalAncestry.readVCF(referencepath, chromosome)
+    refdata, refloci, refind = fetch(t1)
     refancestries = LocalAncestry.haplotype_ancestries(refind, ancestries)
-
+    
+    # Checks and prints
+    
     # Get population information
     println("Getting population information")
     popDict = LocalAncestry.get_pop_dict(refancestries)
-
+    
     # Get haplotype library
     println("Constructing haplotype blocks")
     library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold)
-
-    # Load target haplotype data
-    println("Reading target data")
-    targetdata, targetloci, targetind = LocalAncestry.readVCF(targetpath, chromosome)
-
+    
+    # Debug prints
     # Estimating Local ancestries
+    t2 = @spawn LocalAncestry.readVCF(targetpath, chromosome)
+    targetdata, targetloci, targetind = fetch(t2)
     println("Estimating local ancestries")
     return assign(library, targetdata, targetind, nbcprob, popDict)
 end

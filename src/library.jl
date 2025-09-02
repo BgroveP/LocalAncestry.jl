@@ -83,7 +83,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
         # Do work until there are no chunks left
         chunk::UnitRange = chunks[i]
 
-        internal_blocks = LocalAncestry.get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
+        internal_blocks = LocalAncestry.get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold, nloci)
 
         @lock writelock push!(blocks, internal_blocks...)
 
@@ -116,25 +116,31 @@ function compute_IA(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_b
     end
     p_bar_v[1:n] .= LocalAncestry.mean.(eachrow(countmat[1:n, :]))
     if outtype == "all"
-        return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
+        return IAall(countmat, p_bar_v, npopulations, n)
     elseif outtype == "min"
-        return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
+        IA = 2.0
+        for i in 1:npopulations, j in npopulations
+            if i < j
+                IA = min(IAsome(countmat, [i,j], n), IA)
+            end
+        end
+        return IA
     else
         error("IA specification not valid")
     end
 end
 
-function IAall(countmat, p_bar_v, npopulations)
+function IAall(countmat, p_bar_v, npopulations, n)
     return sum(countmat[1:n, :] .* log.(countmat[1:n, :])) / npopulations - sum(p_bar_v[1:n] .* log.(p_bar_v[1:n]))
 end
 
-function IAsome(countmat, these)
+function IAsome(countmat, these, n)
     npopulations = length(these)
     p_bar_v = LocalAncestry.mean.(eachrow(countmat[1:n, these]))
     return sum(countmat[1:n, these] .* log.(countmat[1:n, these])) / npopulations - sum(p_bar_v .* log.(p_bar_v))
 end
 
-function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vector{Int}, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold)
+function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vector{Int}, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold, nloci)
     # Initialize
     o = Vector{UnitRange}(undef, n)
     IA1::Float64 = 0.0
@@ -145,6 +151,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
     thisi = firsti
     oj = 1
 
+    maxn = Int(ceil(MAX_BLOCK_FRACTION*nloci))
     # Do work: 
     for l in 1:n
         j = 1
@@ -152,7 +159,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
         if thisi == (firsti + l - 1)
 
             v .= refdata[:, thisi] .+ 1
-            IA1 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2, outtype = "min")
+            IA1 = compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2, outtype="min") 
 
             if IA1 < NEARZERO_FLOAT
                 thisi = firsti + l
@@ -167,9 +174,9 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
                     j = j + 1
                 end
             end
-            IA2 = LocalAncestry.compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)), outtype = "min")
+            IA2 = compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)), outtype="min") 
             empty!(hapDict)
-            if (log(IA2 / IA1) > threshold) | (IA2 <= IA_min) 
+            if (IA2 <= IA_min) & (length(thisi:(firsti+l-1)) < maxn)
                 IA1 = IA2
             else
                 o[oj] = thisi:(firsti+l-1)
