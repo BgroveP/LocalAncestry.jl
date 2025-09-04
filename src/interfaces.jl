@@ -39,6 +39,7 @@ function get_local_ancestries(
     # Read input
     println("Reading .vcf files")
     t1 = @spawn LocalAncestry.readVCF(referencepath, chromosome)
+    t2 = @spawn LocalAncestry.readVCF(targetpath, chromosome)
     refdata, refloci, refind = fetch(t1)
     refancestries = LocalAncestry.haplotype_ancestries(refind, ancestries)
     
@@ -54,8 +55,7 @@ function get_local_ancestries(
     
     # Debug prints
     # Estimating Local ancestries
-    t2 = @spawn LocalAncestry.readVCF(targetpath, chromosome)
-    targetdata, targetloci, targetind = fetch(t2)
     println("Estimating local ancestries")
+    targetdata, targetloci, targetind = fetch(t2)
     return assign(library, targetdata, targetind, nbcprob, popDict)
 end

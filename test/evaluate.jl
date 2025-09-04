@@ -63,3 +63,18 @@ Threads.@threads for tlapos in 1:nrow(tla)
     @lock writelock print(tla[tlapos,:])
 end
 
+
+using CSV, DataFrames, Plots
+data = CSV.read("C:/Users/au488376/Downloads/AdmixPop_human1.csv", DataFrame)
+scatter(data.locus, data.LocalAncestry, label = "LocalAncestry")
+scatter!(data.locus, data.Flare, label = "Flare")
+
+
+dataf = data[data.Flare .> 0.2, :]
+
+scatter(dataf.Flare, dataf.LocalAncestry)
+
+using StatsBase
+
+mean(dataf.Flare)
+mean(dataf.LocalAncestry)
