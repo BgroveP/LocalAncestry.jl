@@ -136,5 +136,4 @@ function assign_missing!(probabilities, ancestry)
             ancestry[(s):n] .= ancestry[s-1]
         end
     end
-
 end

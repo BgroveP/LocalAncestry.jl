@@ -35,7 +35,47 @@ function get_local_ancestries(
     ancestries::DataFrame;
     threshold::Float64=0.01,
     nbcprob::Float64=0.95,
-)
+    printlevel::String = "standard"
+)   
+    # 
+
+    # Read input
+    println("Reading .vcf files")
+    t1 = @spawn LocalAncestry.readVCF(referencepath, chromosome)
+    t2 = @spawn LocalAncestry.readVCF(targetpath, chromosome)
+    refdata, refloci, refind = fetch(t1)
+    refancestries = LocalAncestry.haplotype_ancestries(refind, ancestries)
+    
+    # Checks and prints
+    
+    # Get population information
+    println("Getting population information")
+    popDict = LocalAncestry.get_pop_dict(refancestries)
+    
+    # Get haplotype library
+    println("Constructing haplotype blocks")
+    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold)
+    
+    # Debug prints
+    # Estimating Local ancestries
+    println("Estimating local ancestries")
+    targetdata, targetloci, targetind = fetch(t2)
+    return assign(library, targetdata, targetind, nbcprob, popDict)
+end
+
+function get_local_ancestries2(
+    chromosome::Union{Int,AbstractString},
+    referencepath::AbstractString,
+    targetpath::AbstractString,
+    ancestries::Union{DataFrame, String};
+    threshold::Float64=0.01,
+    nbcprob::Float64=0.95,
+    printlevel::String = "standard"
+)   
+    # Reference information
+    println("Reading the reference information")
+    ancestries = read_reference_ancestries(ancestries)
+    
     # Read input
     println("Reading .vcf files")
     t1 = @spawn LocalAncestry.readVCF(referencepath, chromosome)

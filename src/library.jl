@@ -98,8 +98,6 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
 
         internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => LocalAncestry.get_haplolib_from_blocks(block, refdata, popDict) for block in blockchunk)
         @lock writelock merge!(haploLib, internal_haploLib)
-
-
     end
 
     # Get 
@@ -115,11 +113,12 @@ function compute_IA(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_b
         countmat[1:n, popi] = countmat[1:n, popi] ./ nhaplotypesperblock[popi]
     end
     p_bar_v[1:n] .= LocalAncestry.mean.(eachrow(countmat[1:n, :]))
+
     if outtype == "all"
         return IAall(countmat, p_bar_v, npopulations, n)
     elseif outtype == "min"
-        IA = 2.0
-        for i in 1:npopulations, j in npopulations
+        IA = log(size(countmat, 2)) + 1
+        for i in 1:npopulations, j in 1:npopulations
             if i < j
                 IA = min(IAsome(countmat, [i,j], n), IA)
             end
@@ -152,6 +151,7 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
     oj = 1
 
     maxn = Int(ceil(MAX_BLOCK_FRACTION*nloci))
+
     # Do work: 
     for l in 1:n
         j = 1
@@ -174,8 +174,10 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
                     j = j + 1
                 end
             end
+
             IA2 = compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)), outtype="min") 
             empty!(hapDict)
+
             if (IA2 <= IA_min) & (length(thisi:(firsti+l-1)) < maxn)
                 IA1 = IA2
             else
