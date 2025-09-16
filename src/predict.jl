@@ -109,7 +109,7 @@ function hmm!(ancestry, probabilities, s, e)
     forward = forward .* backward
 
     ancestry[workrange2] = ancestry[[s - 1, e]][last.(findmax.(eachcol(forward)[2:(end-1)]))]
-    return Nothing
+    return nothing
 end
 
 function assign_missing!(probabilities, ancestry)

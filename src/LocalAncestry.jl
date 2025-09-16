@@ -22,6 +22,7 @@ include("interfaces.jl")
 include("misc.jl")
 include("predict.jl")
 include("read.jl")
+include("QGIO.jl/QGVCF.jl")
 
 export get_local_ancestries
 
