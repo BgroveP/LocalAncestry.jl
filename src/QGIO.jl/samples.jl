@@ -13,3 +13,26 @@ function samples(path)
     close(file)
     error("Reached end of file without finding samples")
 end
+
+function _mergesamples(path, ancestries, omits)
+    # map populations to haplotype columns
+    samples = QGIO.samples(path)
+
+    sdf = DataFrame(individual=repeat(samples, inner=PLOIDITY),
+        haplotype=repeat(1:PLOIDITY, outer=length(samples)),
+        invcf=true,
+        index=1:(2*length(samples)))
+    odf = deepcopy(omits)
+    odf[:, "omit"] .= true
+    leftjoin!(sdf, odf, on=["individual", "haplotype"])
+    leftjoin!(sdf, ancestries, on="individual")
+    sdf.omit = coalesce.(sdf.omit, false)
+    sdf.population = coalesce.(sdf.population, "unknown")
+
+    # Print 
+    if ~all(sdf.population .== sdf.population[1])
+    QGIO._print_ancestries(sdf)
+    end
+    deleteat!(sdf, findall(sdf.omit))
+    return sdf
+end

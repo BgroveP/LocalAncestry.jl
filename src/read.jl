@@ -1,4 +1,157 @@
 
+function read_vcf(path::Union{String, Vector{String}};
+    c::Union{String,Int}="",
+    field::String="GT",
+    MAF::Float64=0.0,
+    loci::Vector{String}=String[],
+    omithaplotypes::Union{String,DataFrame}=DataFrame(individual=Vector{String}(), haplotype=Vector{Int}()),
+    ancestries::Union{String,DataFrame}="")
+
+    println("Reading VCF file(s):\n", join("  " .* path, '\n'))
+    # If path is not a vector, make it one
+    if isa(path, String)
+        path = [path]
+    end
+
+    # Initialize
+    ## Locks
+    wlock = ReentrantLock() # Lock used for writing
+
+    ## Per-file vectors
+    ploci = Vector{DataFrame}(undef, length(path))
+    psamples = Vector{Vector{String}}(undef, length(path)) # Samples
+    pvcfcols = Vector{Vector{Int}}(undef, length(path))
+    pxrows = Vector{Vector{Int}}(undef, length(path))
+    ppops = Vector{Vector{String}}(undef, length(path))
+    ic = Vector{UInt8}()
+
+    # Get vcf loci
+    println("Getting loci")
+
+    ## Read locus information for each vcf
+    Threads.@threads for i in eachindex(path)
+        tmp = getinfo(path[i], "loci")
+        tmp[:, "file$(i)"] .= true
+        @lock wlock ploci[i] = tmp
+    end
+
+    ## Combine vcf information to check they all contain the same loci, have same coding for alleles etc.
+    vcfinfo = reduce((x, y) -> outerjoin(x, y, on=VCF_HEADER), lvector)
+    check_vcfinfo(vcfinfo)
+
+    # Translate chromosome from Int or String to vector of UInt8
+    ic = translate_chromosome(c, vcfinfo)
+
+    # Get individuals
+    println("Getting individuals")
+    ## Read individuals for each vcf file and ensure no duplicate individuals
+    Threads.@threads for i in eachindex(path)
+        tmp = getinfo(path[i], "individuals")
+        @lock wlock psamples[i] = tmp
+    end
+    check_individuals(psamples)
+
+    # Subsetting 
+    println("Subsetting individuals")
+    ## Get omitted haplotypes
+    if isa(omithaplotypes, String)
+        omithaplotypes = CSV.read(omithaplotypes,
+            DataFrame,
+            types=Dict(1 => String, 2 => Int))
+    end
+    omithaplotypes[:, "omit"] .= true
+
+    ## Get focal columns in vcf file
+    ### Ancestries: Read if string, fill if empty
+    if ancestries == ""
+        ancestries = DataFrame(individual = vcat(ivector...), population = "unknown")
+    elseif isa(ancestries, String)
+        ancestries = CSV.read(ancestries, DataFrame, types = String)
+    end
+
+    for (i, inds) in enumerate(ivector)
+        pvcfcols[i], psamples[i], pxrows[i], ppops[i] = get_vcf_to_x_indices(inds, omithaplotypes, ancestries)
+    end
+
+    ## Either use all loci, or only the requested ones
+    println("Subsetting loci")
+    if length(loci) == 0
+        loci = vcfinfo.identifier
+    end
+
+    ## Get loci with MAF above limit
+    if MAF > NEARZERO_FLOAT
+        temphaplotype = zeros(Int8, PLOIDITY*length(psamples[1]))
+
+        maf 
+    end
+
+    # Construct internal variables
+
+end
+
+function getVCFloci2(path::AbstractString, c::Union{AbstractString,Int}, popDict, vcfcols, xrows)
+
+    # Read
+    # Initialize
+    ## Containers
+    buffer = zeros(UInt8, READLINE_BUFFER_SIZE)
+    tmplocus = zeros(Int8, 2 * length(individuals))
+    chromosome_match = [true, true]
+    MAF = Vector{Float64}()
+    loci = Vector{String}()
+
+    # Integers for iteration
+    pos::Int = 1
+    pos1::Int = 1
+    pos2::Int = 1
+    pos3::Int = 1
+
+    # Read file until the end of file
+    p = zeros(Float64, length(keys(popDict)))
+    while LocalAncestry.readline!(file, buffer)
+        if all(buffer .== UInt8('a'))
+            break
+        end
+        # Skip all headers
+        if buffer[1] != UInt8('#')
+            # Check if the line contains the focal chromosome
+            chromosome_match .= true
+            for k in eachindex(chromosome_match)
+                pos = 1
+                while pos <= chromosome_char_lengths[k]
+                    if buffer[pos] != chromosome[k][pos]
+                        chromosome_match[k] = false
+                        break
+                    else
+                        pos = pos + 1
+                    end
+                end
+            end
+
+            # If line contains focal chromosome, read haplotypes
+            if any(chromosome_match)
+                LocalAncestry.vcfrow_haplotype(buffer, tmplocus, pos1, pos2, pos3)
+                push!(loci, LocalAncestry.vcfrow_locus(buffer, pos1, pos2))
+                x = @view tmplocus[vcfcols][xrows]
+                push!(MAF, ponelocus(x, popDict, p))
+            end
+        end
+        buffer .= UInt8('a')
+    end
+    close(file)
+    return loci, MAF
+end
+
+function ponelocus(x, popDict, p)
+    for (popi, pop) in enumerate(keys(popDict))
+        p[popi] = LocalAncestry.mean(x[popDict[pop]]) + NEARZERO_FLOAT
+    end
+    p .= min.(p, 1 .- p)
+    return maximum(p)
+end
+
+
 function readVCF(path::AbstractString, c::Union{AbstractString,Int})
 
     # Initialize
@@ -80,6 +233,44 @@ function getVCFindividuals(path::AbstractString)
     return [""]
 end
 
+function readline!(s::GZip.GZipStream, b::Vector{UInt8})
+
+    # Initialize 
+    p::Union{Int,Nothing} = 1
+
+    # Read until we either hit the end of the file, or a newline
+    while !eof(s)
+        gzgets(s, pointer(b) + p - 1, length(b) - p + 1) # Reads into buffer
+        p = findnext(x -> x == UInt8('\0'), b, p) # Finds the \0 symbol which marks the end of the input read above
+        if ~isnothing(p) && (b[p-1] == UInt8('\n')) # Did we find a newline?
+            return true # yes: stop here with success
+        else
+            resize!(b, length(b) + READLINE_BUFFER_SIZE) # no: grow the vector and go again
+        end
+    end
+    # Reached EOF without finding a newline
+
+    return false
+end
+
+function readline!(s::IOStream, b::Vector{UInt8})
+    d::UInt8 = UInt8('\n')
+    p::Int = 1
+
+    while !eof(s)
+        Base.@_lock_ios s n = Int(ccall(:jl_readuntil_buf, Csize_t, (Ptr{Cvoid}, UInt8, Ptr{UInt8}, Csize_t), s.ios, d, pointer(b, p), (length(b) - p + 1) % Csize_t))
+        p += n
+        if b[p-1] == d
+            return true # yes: stop here with success
+        else
+            resize!(b, length(b) + READLINE_BUFFER_SIZE) # no: grow the vector and go again
+        end
+
+    end
+
+    return false
+end
+
 function getVCFloci(path::AbstractString, c::Union{AbstractString,Int})
 
     # Initialize
@@ -106,17 +297,84 @@ function getVCFloci(path::AbstractString, c::Union{AbstractString,Int})
 
     return loci
 end
-function vcf_open(path::AbstractString; opentype="r")
-    if path[(end-6):end] == ".vcf.gz"
-        file = GZip.open(path, opentype)
-    elseif path[(end-3):end] == ".vcf"
-        file = open(path, opentype)
-    else
-        error("Input file was not a (compressed) .vcf file")
+function skipline!(s::GZip.GZipStream, buf::Vector{UInt8})
+    while !eof(s)
+        # Read a chunk
+        ptr = gzgets(s, buf)
+        ptr == C_NULL && error("Error reading from GZipStream")
+        # Find the first newline in the chunk
+        idx = findfirst(==(UInt8('\n')), buf)
+        if idx !== nothing
+            # Found a newline; skip to the next line
+            return true
+        end
+    end
+    # Reached EOF without finding a newline
+    return false
+end
+
+function skipline!(s::IOStream, b::Vector{UInt8})
+    _ = readline(s)
+end
+
+
+function vcfrow_locus(b::Vector{UInt8}, pos1::Int, pos2::Int)
+
+    pos1 = 1
+    pos2 = 1
+    # Find first separator
+    while b[pos1] != UInt8('\t')
+        pos1 = pos1 + 1
     end
 
-    return file
+    # Find second separator
+    pos1 = pos1 + 1
+    pos2 = pos1
+    while b[pos2+1] != UInt8('\t')
+        pos2 = pos2 + 1
+    end
+
+    return join(Char.(b[pos1:pos2]), "")
 end
+
+function vcfrow_haplotype(b::Vector{UInt8}, locusout::Vector{Int8}, pos1::Int, pos2::Int, pos3::Int)
+
+    pos1 = 0 # Used as '\t' counter
+    pos2 = 1 # Used for marking position
+    pos3 = 1
+    # Find first separator
+    while pos1 < 8
+        if b[pos2] == UInt8('\t')
+            pos1 = pos1 + 1
+        end
+        pos2 = pos2 + 1
+    end
+
+    # Find second separator
+    pos1 = pos2 # Now also used for marking position
+    while b[pos1+1] != UInt8('\t')
+        pos1 = pos1 + 1
+    end
+
+    # Get haplotypes
+    if (b[pos2] == UInt8('G')) & (b[pos1] == UInt8('T')) & ((pos1 - pos2) == 1)
+        # If only field is "GT"
+        while (pos3 < length(locusout)) & (pos1 < length(b))
+            if b[pos1+1] == UInt8('|')
+                locusout[pos3] = b[pos1] - 48
+                locusout[pos3+1] = b[pos1+2] - 48
+                pos3 = pos3 + 2
+            end
+            pos1 = pos1 + 1
+        end
+    else
+        # If there are multiple fields
+        error("Can't read vcfs with multiple fields yet")
+    end
+
+end
+
+
 
 function read_reference_ancestries(ancestries::Union{DataFrame,String})
 
@@ -220,70 +478,13 @@ function readVCF_reference(path::AbstractString, c::Union{AbstractString,Int}, a
     # Return
     return x, loci, string.(individuals)
 end
-
-function getVCFloci2(path::AbstractString, c::Union{AbstractString,Int}, popDict, vcfcols, xrows)
-
-    # Initialize
-    this_chromosome = ["", "chr"] .* string.([c, c])
-    chromosome = LocalAncestry.string2UInt8.(this_chromosome)
-    chromosome_char_lengths = length.(chromosome)
-    file = LocalAncestry.vcf_open(path)
-
-    # Read
-    # Initialize
-    ## Containers
-    buffer = zeros(UInt8, READLINE_BUFFER_SIZE)
-    tmplocus = zeros(Int8, 2 * length(individuals))
-    chromosome_match = [true, true]
-    MAF = Vector{Float64}()
-    loci = Vector{String}()
-
-    # Integers for iteration
-    pos::Int = 1
-    pos1::Int = 1
-    pos2::Int = 1
-    pos3::Int = 1
-
-    # Read file until the end of file
-    p = zeros(Float64, length(keys(popDict)))
-    while LocalAncestry.readline!(file, buffer)
-        if all(buffer .== UInt8('a'))
-            break
-        end
-        # Skip all headers
-        if buffer[1] != UInt8('#')
-            # Check if the line contains the focal chromosome
-            chromosome_match .= true
-            for k in eachindex(chromosome_match)
-                pos = 1
-                while pos <= chromosome_char_lengths[k]
-                    if buffer[pos] != chromosome[k][pos]
-                        chromosome_match[k] = false
-                        break
-                    else
-                        pos = pos + 1
-                    end
-                end
-            end
-
-            # If line contains focal chromosome, read haplotypes
-            if any(chromosome_match)
-                LocalAncestry.vcfrow_haplotype(buffer, tmplocus, pos1, pos2, pos3)
-                push!(loci, LocalAncestry.vcfrow_locus(buffer, pos1, pos2))
-                x = @view tmplocus[vcfcols][xrows]
-                push!(MAF, ponelocus(x, popDict, p))
-            end
-        end
-        buffer .= UInt8('a')
+function vcf_open(path::AbstractString; opentype="r")
+    if path[(end-6):end] == ".vcf.gz"
+        file = GZip.open(path, opentype)
+    elseif path[(end-3):end] == ".vcf"
+        file = open(path, opentype)
+    else
+        error("Input file was not a (compressed) .vcf file")
     end
-    close(file)
-    return loci, MAF
-end
-
-function ponelocus(x, popDict, p)
-    for (popi, pop) in enumerate(keys(popDict))
-        p[popi] = LocalAncestry.mean(x[popDict[pop]]) + NEARZERO_FLOAT
-    end
-    p .= min.(p, 1 .- p)
-    return maximum(p)
+    return file
 end

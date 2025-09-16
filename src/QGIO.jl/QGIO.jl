@@ -25,4 +25,5 @@ include("readline.jl")
 include("skipline.jl")
 include("summary.jl")
 include("print.jl")
+include("haplotypes.jl")
 end

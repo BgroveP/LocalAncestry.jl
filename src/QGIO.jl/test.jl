@@ -1,6 +1,7 @@
 
 using CSV
 using DataFrames
+using LocalAncestry
 include("src/QGIO.jl/QGIO.jl")
 
 path = "test/data/AdmixPop_human1_chr22_ancestral_all.vcf.gz"
@@ -14,3 +15,8 @@ ancestries = CSV.read("test/data/AdmixPop_human1_ancestral.csv", DataFrame)
 QGIO.allelefreq!(loci, path, ancestries = ancestries, omits = omits)
 QGIO.inform_for_assign!(loci)
 
+
+refdata = QGIO.haplotypes(path)
+
+@benchmark QGIO.haplotypes(path)
+@benchmark LocalAncestry.readVCF(path, 22)

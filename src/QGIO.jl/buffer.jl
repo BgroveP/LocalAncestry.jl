@@ -39,6 +39,10 @@ function _buffer_field(b)
     return _buffer_entry(b, 9)
 end
 
+function _buffer_position(b)
+    return parse(Int,QGIO._buffer_entry(b, 2))
+end
+
 function _buffer_haplotypes!(c, b)
     # Initialize
     bufferposition = 1

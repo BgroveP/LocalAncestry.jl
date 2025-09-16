@@ -6,25 +6,9 @@ function allelefreq!(loci,
     # 
     println("Calculating allele counts (allelecount) and frequencies (allelefreq)")
 
-    # map populations to haplotype columns
-    samples = QGIO.samples(path)
-
-    sdf = DataFrame(individual=repeat(samples, inner=PLOIDITY),
-        haplotype=repeat(1:PLOIDITY, outer=length(samples)),
-        invcf=true,
-        index=1:(2*length(samples)))
-    odf = deepcopy(omits)
-    odf[:, "omit"] .= true
-    leftjoin!(sdf, odf, on=["individual", "haplotype"])
-    leftjoin!(sdf, ancestries, on="individual")
-    sdf.omit = coalesce.(sdf.omit, false)
-    sdf.population = coalesce.(sdf.population, "unknown")
-
-    # Print 
-    _print_ancestries(sdf)
-
+    sdf = _mergesamples(path, ancestries, omits)
+    
     #
-    deleteat!(sdf, findall(sdf.omit))
     pops = unique(sdf.population)
     ipops = [sdf.index[sdf.population.==p] for p in pops]
     locus_dictionary = Dict(collect(zip(loci.chromosome, loci.identifier)) .=> 1:nrow(loci))
