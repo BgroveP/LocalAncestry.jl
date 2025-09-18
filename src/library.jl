@@ -35,27 +35,6 @@ function get_haplotype_frequencies(data, wv, p, bstart, bend)
 
 end
 
-function get_haplolib_from_blocks(block, refdata, popDict)
-
-    refview = @view refdata[:, block]
-    V = unique(refview, dims=1)
-    nunique = size(V, 1)
-    countmat = zeros(Float64, nunique, length(keys(popDict))) .+ NEARZERO_FLOAT
-
-    # Calculate IA
-    for (popi, pop) in enumerate(keys(popDict))
-        for h in 1:nunique
-            countmat[h, popi] = sum(eachrow(refview[popDict[pop], :]) .== [V[h, :]])
-        end
-    end
-
-    for h in 1:nunique
-        countmat[h, :] = countmat[h, :] ./ sum(countmat[h, :])
-    end
-
-    return Dict{Vector{Int8},Vector{Float64}}(eachrow(V) .=> eachrow(countmat) ./ sum.(eachrow(countmat)))
-end
-
 function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String, UnitRange{Int}}, threshold::Float64, refloci::DataFrame)
 
     # Initialize
@@ -84,7 +63,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String, Unit
 
     @threads for i in 1:NCHUNKS
         blocks =  blockchunks[i]
-        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => LocalAncestry.get_haplolib_from_blocks(block, refdata, popDict) for block in blocks)
+        internal_haploLib = get_haplolib_from_blocks(blocks, refdata, popDict)
         @lock writelock merge!(haploLib, internal_haploLib)
     end
 
@@ -198,3 +177,37 @@ function get_haplotype_blocks(refdata, c, p, threshold, refloci)
 
     return o[1:(oj-1)]
 end
+
+
+function get_haplolib_from_blocks(blocks, refdata, popDict)
+
+    npopulations = length(keys(popDict))
+    outlib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}()
+    sizehint!(outlib, length(blocks))
+
+    # 
+    for block in blocks
+    tmplib = Dict{Vector{Int8},Vector{Float64}}()
+        for (ip, p) in enumerate(keys(popDict))
+            for r in popDict[p]
+
+                t = @view refdata[r, block]
+                if haskey(tmplib, t)
+                    tmplib[t][ip] += 1
+                else
+                    get!(tmplib, t, zeros(Float64, npopulations))
+                    tmplib[t][ip] += 1
+                end
+            end
+        end
+
+        # Standardize
+        for k in keys(tmplib)
+            tmplib[k] = tmplib[k] ./ sum(tmplib[k])
+        end
+                 outlib[block] = tmplib
+    end
+
+    return outlib
+end
+
