@@ -56,7 +56,7 @@ function get_haplolib_from_blocks(block, refdata, popDict)
     return Dict{Vector{Int8},Vector{Float64}}(eachrow(V) .=> eachrow(countmat) ./ sum.(eachrow(countmat)))
 end
 
-function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vector{Int}}, threshold::Float64)
+function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String, UnitRange{Int}}, threshold::Float64, refloci::DataFrame)
 
     # Initialize
     ## Chunks
@@ -64,39 +64,27 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
 
     nloci::Int = size(refdata, 2)
     chunks::Vector{UnitRange} = LocalAncestry.vecsplit(1:nloci, NCHUNKS)
-    nhaplotypes::Int = size(refdata, 1)
-    nhaplotypesperblock::Vector{Int} = length.(values(popDict))
-    npopulations::Int = length(keys(popDict))
     blocks = Vector{UnitRange}()
 
     ## Locks
     writelock = ReentrantLock()
-
+    println("   Block ranges")
     # Work
     @threads for i in 1:NCHUNKS
 
-        # Internal initialize
-        wv = zeros(Int, nhaplotypes)
-        countmat = zeros(Float64, nhaplotypes, npopulations)
-        p_bar_v = zeros(Float64, nhaplotypes)
-
-        # Do work until there are no chunks left
-        chunk::UnitRange = chunks[i]
-
-        internal_blocks = LocalAncestry.get_haplotype_blocks(refdata, length(chunk), first(chunk), wv, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold, nloci)
-
+        internal_blocks = LocalAncestry.get_haplotype_blocks(refdata, chunks[i], popDict, threshold, refloci)
         @lock writelock push!(blocks, internal_blocks...)
 
     end
 
     # Create 
+    println("   Haplotype frequencies")
     haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}()
     blockchunks = LocalAncestry.vecsplit(blocks, NCHUNKS)
 
     @threads for i in 1:NCHUNKS
-        blockchunk = blockchunks[i]
-
-        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => LocalAncestry.get_haplolib_from_blocks(block, refdata, popDict) for block in blockchunk)
+        blocks =  blockchunks[i]
+        internal_haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}(block => LocalAncestry.get_haplolib_from_blocks(block, refdata, popDict) for block in blocks)
         @lock writelock merge!(haploLib, internal_haploLib)
     end
 
@@ -104,13 +92,13 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String,Vecto
     return haploLib
 end
 
-function compute_IA(wv::Vector{Int}, popDict, countmat, nhaplotypesperblock, p_bar_v, npopulations, n; outtype="all")
+function compute_IA(wv::Vector{Int}, popDict, countmat, p_bar_v, n, npopulations; outtype="all")
     countmat[1:n, :] .= NEARZERO_FLOAT
     for (popi, pop) in enumerate(keys(popDict))
         for i in values(popDict[pop])
             countmat[wv[i], popi] += 1
         end
-        countmat[1:n, popi] = countmat[1:n, popi] ./ nhaplotypesperblock[popi]
+        countmat[1:n, popi] = countmat[1:n, popi] ./ length(popDict[pop])
     end
     p_bar_v[1:n] .= LocalAncestry.mean.(eachrow(countmat[1:n, :]))
 
@@ -139,13 +127,26 @@ function IAsome(countmat, these, n)
     return sum(countmat[1:n, these] .* log.(countmat[1:n, these])) / npopulations - sum(p_bar_v .* log.(p_bar_v))
 end
 
-function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vector{Int}, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, threshold, nloci)
+function get_haplotype_blocks(refdata, c, p, threshold, refloci)
     # Initialize
-    o = Vector{UnitRange}(undef, n)
+    ## Amounts
+    nhaplotypes = size(refdata, 1)
+    npopulations = length(keys(p))
+    nloci = nrow(refloci)
+
+    ## Chunk-related
+    n = length(c)
+    firsti = first(c)
+
+    ## Containers
+    v = zeros(Int, nhaplotypes)
+    countmat = zeros(Float64, nhaplotypes, npopulations)
+    p_bar_v = zeros(Float64, nhaplotypes)
+    o = Vector{UnitRange}(undef, nloci)
     IA1::Float64 = 0.0
     IA2::Float64 = 0.0
     hapDict = Dict{Tuple{Int8,Int},Int}()
-    sizehint!(hapDict, n)
+    sizehint!(hapDict, nhaplotypes)
     j::Int = 1
     thisi = firsti
     oj = 1
@@ -157,13 +158,8 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
         j = 1
         # If first locus, insert haplotypes
         if thisi == (firsti + l - 1)
-
             v .= refdata[:, thisi] .+ 1
-            IA1 = compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, 2, outtype="min") 
-
-            if IA1 < NEARZERO_FLOAT
-                thisi = firsti + l
-            end
+            IA1 = compute_IA(v, p, countmat, p_bar_v, 2, npopulations, outtype="min") 
         else
             for i in eachindex(v)
                 if haskey(hapDict, (refdata[i, l+firsti-1], v[i]))
@@ -175,10 +171,10 @@ function get_haplotype_blocks(refdata::Matrix{Int8}, n::Int, firsti::Int, v::Vec
                 end
             end
 
-            IA2 = compute_IA(v, p, countmat, nhaplotypesperblock, p_bar_v, npopulations, maximum(values(hapDict)), outtype="min") 
+            IA2 = compute_IA(v, p, countmat, p_bar_v, maximum(values(hapDict)), npopulations, outtype="min") 
             empty!(hapDict)
 
-            if (IA2 <= IA_min) & (length(thisi:(firsti+l-1)) < maxn)
+            if (IA2 <= threshold) & (length(thisi:(firsti+l-1)) < maxn)
                 IA1 = IA2
             else
                 o[oj] = thisi:(firsti+l-1)

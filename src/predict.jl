@@ -1,7 +1,8 @@
 
-function assign(library, targetdata, targetind, nbcprob, popDict)
+function assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel)
 
     # Split into worker threads
+    targetind = unique(targetsamples.individual)
     NCHUNKS = nthreads()
     chunks = LocalAncestry.vecsplit(targetind, NCHUNKS)
     npopulations = length(keys(popDict))
@@ -40,7 +41,7 @@ function assign(library, targetdata, targetind, nbcprob, popDict)
                 end
 
                 # Assign missing
-                if any(ancestry .> 0)
+                if any(ancestry .> 0) & (printlevel != "debug")
                     assign_missing!(probabilities, ancestry)
                 end
 

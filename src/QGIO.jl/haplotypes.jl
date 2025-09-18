@@ -1,10 +1,10 @@
 
 function haplotypes(path;
-    l=DataFrame(chromosome=String[], position=Int[], identifier=String[]),
+    loci=DataFrame(chromosome=String[], position=Int[], identifier=String[]),
     ancestries::DataFrame=DataFrame(individual=String[], population=String[]),
     omits::DataFrame=DataFrame(individual=String[], haplotype=Int[]))
 
-    sdf = _mergesamples(path, ancestries, omits)
+    sdf = _mergesamples(samples(path), ancestries, omits)
 
     # Get output row
     sort!(sdf, "population")
@@ -12,12 +12,13 @@ function haplotypes(path;
     sort!(sdf, "index")
 
     # 
-    if nrow(l) == 0
-        l = QGIO.loci(path)[:,[:chromosome, :position, :identifier]]
+    if nrow(loci) == 0
+        loci = QGIO.loci(path)[:,[:chromosome, :position, :identifier]]
     end
+
     # Initialize
-    x = zeros(Int8, nrow(sdf), nrow(l))
-    locusdict = Dict(zip(l.chromosome, l.position, l.identifier) .=> 1:nrow(l))
+    x = zeros(Int8, nrow(sdf), nrow(loci))
+    locusdict = Dict(zip(loci.chromosome, loci.position, loci.identifier) .=> 1:nrow(loci))
     buffer = QGIO.create_buffer()
     file = QGIO.open_vcf(path)
     haplotypes = zeros(Int8, nrow(sdf))
@@ -36,6 +37,9 @@ function haplotypes(path;
 
     end
 
-    return x
+    # Resort
+    sort!(sdf, "xrow")
+
+    return x, sdf[:,[:individual, :haplotype, :population, :xrow]]
 end
 
