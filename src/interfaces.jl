@@ -1,61 +1,77 @@
-"""
-    get_local_ancestries(chromosome::Union{Int64,String}, 
-                          referenceVCF::String, 
-                          targetVCF::String, 
-                          referenceAncestries::DataFrame; 
-                          priorsMethod::String = "flat", 
-                          minBlockSize::Int64 = 5, 
-                          incrBlockSize::Int64 = 1, 
-                          blockCrit::Float64 = 0.2, 
-                          minNBCProb::Float64 = 0.95)
-# Purpose
-This function infers local ancestries. It is meant as a one-function interface to the entire inference process. 
 
-# Arguments
-- `chromosome::Union{Int64, String}`: The focal chromosome. Autosomal chromosomes can be denoted by their number as e.g.: 1, "1", or "chr1".
-- `referenceVCF::String`: The relative path to .vcf file with phased genotypes of reference individuals.
-- `targetVCF::String`: The relative path to .vcf file with phased genotypes of target individuals.
-- `referenceAncestries::DataFrame`: Two-column (["individual", "ancestry"]) DataFrame with ancestries of reference individuals.
-- `priorsMethod::String`: The method for calculating priors for the Naive Bayes Classification step (flat, CGR). We recommend flat priors for now.
-- `minBlockSize::Int64`: The minimal size of haplotype blocks.
-- `incrBlockSize::Int64`: The incremental size of haplotype blocks.
-- `blockCrit::Float64`: The stopping criterion for building haplotype blocks. Smaller values provide larger haplotype blocks.
-- `minNBCProb::Float64`: The lower threshold for posterior probabilities. Posterior probabilities above this threshold is assigned with the Naive Bayes Classification step, while those below the threshold will be assigned with the Hidden Markov step. 
-
-# Returns
-- `postProb::OrderedDict{String, Vector{OrderedDict{String, Float64}}}`: The posterior probabilities from the Naive Bayes step.
-- `postClass::OrderedDict{String, Vector{String}}`: The assigned populations after the Hidden Markov model step.
-- `haplotypeLibrary::OrderedDict{}`: The library of haplotype blocks.
-
-"""
 function get_local_ancestries(
-    chromosome::Union{Int,AbstractString},
     referencepath::AbstractString,
     targetpath::AbstractString,
-    ancestries::DataFrame;
-    threshold::Float64=0.01,
+    ancestrypath::String;
+    omitpath::String="",
+    chromosome::Union{Int,AbstractString}="",
+    threshold::Float64=0.65,
     nbcprob::Float64=0.95,
+    maf::Float64=0.0001,
+    printlevel::String="standard"
 )
-    # Read input
-    println("Reading .vcf files")
-    t1 = @spawn LocalAncestry.readVCF(referencepath, chromosome)
-    t2 = @spawn LocalAncestry.readVCF(targetpath, chromosome)
-    refdata, refloci, refind = fetch(t1)
-    refancestries = LocalAncestry.haplotype_ancestries(refind, ancestries)
+    # Print input
+    LocalAncestry.printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, nbcprob, printlevel, maf)
+
+    # Read reference locus information
+    println("\nReading the reference loci")
+    refloci = QGIO.loci(referencepath)
+    QGIO._print_loci(refloci)
+
+    # Read reference ancestries
+    println("\nReading the reference ancestries")
+    ancestry = QGIO.read_dataframe(ancestrypath, "ancestry", ["individual", "population"], [String, String])
+    QGIO._print_ancestry(ancestry)
+
+    # Read reference omits
+    if omitpath != ""
+        omits = QGIO.read_dataframe(omitpath, "omission", ["individual", "haplotype"], [String, Int])
+    else
+        omits = DataFrame(individual=String[], haplotype=Int[])
+    end
     
-    # Checks and prints
+    # Print sample summary
+    println("\nNumber of haplotypes")
+    QGIO._print_samples(QGIO.samples(referencepath), ancestry, omits)
+
+    # Subset loci
+    println("\nSubsetting loci")
+    chromosome = chromosome == "" ? refloci.chromosome[1] : QGIO.convert_chromosome(chromosome, refloci)
+    if maf > NEARZERO_FLOAT
+        QGIO.allelefreq!(refloci, referencepath, omits = omits, ancestries = ancestry)
+        refloci[:,"maftoolow"] = refloci.allelefreq .< maf
+    else
+        refloci[:,"maftoolow"] .= false
+    end
+
+    # Subset based on chromosome
+    refloci[:,"wrongchromosome"] = refloci.chromosome .!= chromosome
+
+    # Delete omitted loci
+    QGIO._print_locussubset(refloci, maf)
+    deleteat!(refloci, findall(refloci.maftoolow .| refloci.wrongchromosome))
+
+    # Calculate per-locus informativeness for assignment
+    QGIO.inform_for_assign!(refloci, mode = "min")
     
-    # Get population information
-    println("Getting population information")
-    popDict = LocalAncestry.get_pop_dict(refancestries)
+    println("\nReading the reference haplotypes")
+    refdata, refsamples = QGIO.haplotypes(referencepath, loci = refloci, ancestries = ancestry, omits = omits)
     
+    # Set popdict
+    println("\nMapping reference ancestries")
+    pdf = combine(groupby(refsamples, "population"), :xrow .=> [minimum, maximum] .=> ["min", "max"])
+    popDict = Dict(String.(pdf.population) .=> UnitRange.(pdf.min, pdf.max))
+
     # Get haplotype library
-    println("Constructing haplotype blocks")
-    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold)
-    
-    # Debug prints
+    println("\nGetting haplotype library")
+    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold, refloci)
+
     # Estimating Local ancestries
-    println("Estimating local ancestries")
-    targetdata, targetloci, targetind = fetch(t2)
-    return assign(library, targetdata, targetind, nbcprob, popDict)
+    println("\nReading the target haplotypes")
+    targetdata, targetsamples = QGIO.haplotypes(targetpath, loci = refloci)
+    
+    println("\nAssigning local ancestries")
+    assignments =  LocalAncestry.assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel)
+    pretty!(assignments, chromosome, refloci)
+    return assignments[:,["individual", "chromosome", "haplotype", "block", "ancestry"]]
 end

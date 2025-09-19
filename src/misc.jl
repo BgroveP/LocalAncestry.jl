@@ -27,7 +27,7 @@ end
 
 
 
-function vecsplit(x::Union{UnitRange{Int}, Vector}, n::Int)
+function vecsplit(x::Union{UnitRange{Int}, AbstractVector}, n::Int)
     y = Vector{typeof(x)}(undef, n)
     z::Int = length(x)
     r::Int = z
@@ -62,3 +62,8 @@ function breapeat(vals::AbstractVector{T}, lens::AbstractVector{<:Integer}) wher
     return r
 end
 
+function pretty!(assignments, chromosome, loci)
+    assignments.chromosome .= chromosome
+    assignments.block = UnitRange.(loci.position[first.(assignments.block)], loci.position[first.(assignments.block)])
+
+end
