@@ -1,28 +1,5 @@
-function haplotype_ancestries(i::Vector{String}, o::DataFrame)
-    x = DataFrames.DataFrame(; individual=repeat(i; inner=2))
-    return string.(DataFrames.leftjoin(x, o; on="individual")[!, "population"])
-end
-
-
-function get_pop_dict(x)
-    y = Dict{String,Vector{Int64}}()
-    for i in unique(x)
-        y[i] = findall(i .== x)
-    end
-    return y
-end
-
 function mean(x)
     return sum(x) / length(x)
-end
-
-
-function string2UInt8(s::AbstractString)
-    o = Vector{UInt8}(undef, length(s))
-    for (i, c) in enumerate(s)
-        o[i] = UInt8(c)
-    end
-    return o
 end
 
 

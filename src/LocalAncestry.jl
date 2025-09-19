@@ -18,12 +18,10 @@ HMM_STATECHANGE_PROB::Float64 = NEARZERO_FLOAT
 MAX_BLOCK_FRACTION::Float64 = 0.1
 
 # Write your package code here.
-include("checks.jl")
 include("library.jl")
 include("interfaces.jl")
 include("misc.jl")
 include("predict.jl")
-include("read.jl")
 include("QGIO.jl/QGIO.jl")
 include("print.jl")
 

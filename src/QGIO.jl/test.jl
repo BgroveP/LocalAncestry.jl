@@ -19,4 +19,4 @@ NEARZERO_FLOAT = 0.0000000001
 #
 
 
-@benchmark get_local_ancestries(referencepath, targetpath, ancestrypath, omitpath = omitpath )
+test = get_local_ancestries(referencepath, targetpath, ancestrypath, omitpath = omitpath )
