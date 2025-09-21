@@ -24,6 +24,7 @@ include("misc.jl")
 include("predict.jl")
 include("QGIO.jl/QGIO.jl")
 include("print.jl")
+include("evaluate.jl")
 
 export get_local_ancestries
 

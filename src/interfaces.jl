@@ -73,5 +73,5 @@ function get_local_ancestries(
     println("\nAssigning local ancestries")
     assignments =  LocalAncestry.assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel)
     pretty!(assignments, chromosome, refloci)
-    return assignments[:,["individual", "chromosome", "haplotype", "block", "ancestry"]]
+    return assignments[:,["individual", "chromosome", "haplotype", "basepairs", "ancestry"]]
 end

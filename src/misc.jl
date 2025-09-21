@@ -41,6 +41,5 @@ end
 
 function pretty!(assignments, chromosome, loci)
     assignments.chromosome .= chromosome
-    assignments.block = UnitRange.(loci.position[first.(assignments.block)], loci.position[first.(assignments.block)])
-
+    assignments.basepairs = UnitRange.(loci.position[first.(assignments.block)], loci.position[last.(assignments.block)])
 end
