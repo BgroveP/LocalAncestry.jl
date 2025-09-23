@@ -4,7 +4,7 @@ function haplotypes(path;
     ancestries::DataFrame=DataFrame(individual=String[], population=String[]),
     omits::DataFrame=DataFrame(individual=String[], haplotype=Int[]))
 
-    sdf = _mergesamples(samples(path), ancestries, omits)
+    sdf = QGIO._mergesamples(QGIO.samples(path), ancestries, omits)
 
     # Get output row
     sort!(sdf, "population")
@@ -26,12 +26,12 @@ function haplotypes(path;
 
         if buffer[1] != UInt8('#')
             xcol = get!(locusdict, (QGIO._buffer_chromosome(buffer),  
-            _buffer_position(buffer), 
+            QGIO._buffer_position(buffer), 
             QGIO._buffer_identifier(buffer)), 0)
 
             if xcol > 0 
                  QGIO._buffer_haplotypes!(haplotypes, buffer)
-                x[:,xcol] = haplotypes
+                x[:,xcol] = haplotypes[sdf.xrow]
             end
         end
 
