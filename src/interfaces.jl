@@ -5,7 +5,7 @@ function get_local_ancestries(
     ancestrypath::String;
     omitpath::String="",
     chromosome::Union{Int,AbstractString}="",
-    threshold::Float64=0.65,
+    threshold::Float64=0.3,
     nbcprob::Float64=0.95,
     maf::Float64=0.0001,
     printlevel::String="standard"

@@ -138,7 +138,7 @@ function get_haplotype_blocks(refdata, c, p, threshold, refloci)
         # If first locus, insert haplotypes
         if thisi == (firsti + l - 1)
             v .= refdata[:, thisi] .+ 1
-            IA1 = compute_IA(v, p, countmat, p_bar_v, 2, npopulations, outtype="min") 
+            IA1 = compute_IA(v, p, countmat, p_bar_v, 2, npopulations) 
         else
             for i in eachindex(v)
                 if haskey(hapDict, (refdata[i, l+firsti-1], v[i]))
@@ -150,7 +150,7 @@ function get_haplotype_blocks(refdata, c, p, threshold, refloci)
                 end
             end
 
-            IA2 = compute_IA(v, p, countmat, p_bar_v, maximum(values(hapDict)), npopulations, outtype="min") 
+            IA2 = compute_IA(v, p, countmat, p_bar_v, maximum(values(hapDict)), npopulations) 
             empty!(hapDict)
 
             if (IA2 <= threshold) & (length(thisi:(firsti+l-1)) < maxn)
