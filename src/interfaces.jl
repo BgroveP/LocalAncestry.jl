@@ -5,8 +5,8 @@ function get_local_ancestries(
     ancestrypath::String;
     omitpath::String="",
     chromosome::Union{Int,AbstractString}="",
-    threshold::Float64=0.3,
-    nbcprob::Float64=0.95,
+    threshold::Float64=0.13,
+    nbcprob::Float64=0.99,
     maf::Float64=0.0001,
     printlevel::String="standard"
 )
@@ -41,6 +41,7 @@ function get_local_ancestries(
         QGIO.allelefreq!(refloci, referencepath, omits = omits, ancestries = ancestry)
         refloci[:,"maftoolow"] = refloci.allelefreq .< maf
     else
+        QGIO.allelefreq!(refloci, referencepath, omits = omits)
         refloci[:,"maftoolow"] .= false
     end
 
