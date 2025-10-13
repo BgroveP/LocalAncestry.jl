@@ -58,7 +58,7 @@ function write_flare(la, hapfile::String, outfile::String)
     indsort = [findfirst(unique(la.individual) .== i) for i in unique(samples.individual)]
    
     # Write
-    ofile = open(outfile, "w")
+    ofile = GZip.open(outfile, "w")
 
     ## Header
     println.(ofile, header)
