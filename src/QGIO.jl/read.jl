@@ -1,7 +1,7 @@
 
 function read_dataframe(p, ft, m, ct)
     
-    d = CSV.read(p, DataFrame)
+    d = CSV.read(p, DataFrame,stringtype=String)
 
     # Check for mandatory headers
     for (im,tm) in enumerate(m)

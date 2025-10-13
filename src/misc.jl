@@ -43,3 +43,7 @@ function pretty!(assignments, chromosome, loci)
     assignments.chromosome .= chromosome
     assignments.basepairs = UnitRange.(loci.position[first.(assignments.block)], loci.position[last.(assignments.block)])
 end
+
+function get_ancestry(la, h, pos)
+    return la.ancestry[(first.(la.haplotype) .== h) .& (first.(la.basepairs) .<= pos) .& (last.(la.basepairs) .>= pos)]
+end
