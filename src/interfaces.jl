@@ -15,13 +15,13 @@ function get_local_ancestries(
 
     # Read reference locus information
     println("\nReading the reference loci")
-    refloci = QGIO.loci(referencepath)
-    QGIO._print_loci(refloci)
+    refloci = LocalAncestry.QGIO.loci(referencepath)
+    LocalAncestry.QGIO._print_loci(refloci)
 
     # Read reference ancestries
     println("\nReading the reference ancestries")
-    ancestry = QGIO.read_dataframe(ancestrypath, "ancestry", ["individual", "population"], [String, String])
-    QGIO._print_ancestry(ancestry)
+    ancestry = LocalAncestry.QGIO.read_dataframe(ancestrypath, "ancestry", ["individual", "population"], [String, String])
+    LocalAncestry.QGIO._print_ancestry(ancestry)
 
     # Read reference omits
     if omitpath != ""
@@ -32,13 +32,13 @@ function get_local_ancestries(
     
     # Print sample summary
     println("\nNumber of haplotypes")
-    QGIO._print_samples(QGIO.samples(referencepath), ancestry, omits)
+    LocalAncestry.QGIO._print_samples(LocalAncestry.QGIO.samples(referencepath), ancestry, omits)
 
     # Subset loci
     println("\nSubsetting loci")
-    chromosome = chromosome == "" ? refloci.chromosome[1] : QGIO.convert_chromosome(chromosome, refloci)
+    chromosome = chromosome == "" ? refloci.chromosome[1] : LocalAncestry.QGIO.convert_chromosome(chromosome, refloci)
     if maf > NEARZERO_FLOAT
-        QGIO.allelefreq!(refloci, referencepath, omits = omits, ancestries = ancestry)
+        LocalAncestry.QGIO.allelefreq!(refloci, referencepath, omits = omits, ancestries = ancestry)
         refloci[:,"maftoolow"] = refloci.allelefreq .< maf
     else
         QGIO.allelefreq!(refloci, referencepath, omits = omits)
@@ -49,14 +49,14 @@ function get_local_ancestries(
     refloci[:,"wrongchromosome"] = refloci.chromosome .!= chromosome
 
     # Delete omitted loci
-    QGIO._print_locussubset(refloci, maf)
+    LocalAncestry.QGIO._print_locussubset(refloci, maf)
     deleteat!(refloci, findall(refloci.maftoolow .| refloci.wrongchromosome))
 
     # Calculate per-locus informativeness for assignment
     QGIO.inform_for_assign!(refloci, mode = "min")
     
     println("\nReading the reference haplotypes")
-    refdata, refsamples = QGIO.haplotypes(referencepath, loci = refloci, ancestries = ancestry, omits = omits)
+    refdata, refsamples = LocalAncestry.QGIO.haplotypes(referencepath, loci = refloci, ancestries = ancestry, omits = omits)
     
     # Set popdict
     println("\nMapping reference ancestries")

@@ -4,11 +4,11 @@ function allelefreq!(loci,
     omits::DataFrame=DataFrame(individual=String[], haplotype=Int[]))
 
     # Initialize
-    samples = QGIO.samples(path)
-    locus_dictionary = Dict(collect(zip(loci.chromosome, loci.identifier)) .=> 1:nrow(loci))
+    samples = LocalAncestry.QGIO.samples(path)
+    locus_dictionary = Dict(collect(zip(loci.chromosome, loci.position, loci.identifier)) .=> 1:nrow(loci))
 
     # Merge information
-    sdf = QGIO._mergesamples(samples, ancestries, omits)
+    sdf = LocalAncestry.QGIO._mergesamples(samples, ancestries, omits)
 
     # Get populations
     pops = sort(unique(sdf.population))
@@ -25,14 +25,14 @@ function allelefreq!(loci,
     end
 
     # Read
-    file = QGIO.open_vcf(path)
-    buffer = QGIO.create_buffer()
+    file = LocalAncestry.QGIO.open_vcf(path)
+    buffer = LocalAncestry.QGIO.create_buffer()
     haplotypes = zeros(Int8, PLOIDITY * length(samples))
     locusentry = 0
-    while QGIO.readline!(file, buffer)
+    while LocalAncestry.QGIO.readline!(file, buffer)
         if buffer[1] != UInt8('#')
-            locusentry = locus_dictionary[(QGIO._buffer_chromosome(buffer), QGIO._buffer_identifier(buffer))]
-            QGIO._buffer_haplotypes!(haplotypes, buffer)
+            locusentry = locus_dictionary[(LocalAncestry.QGIO._buffer_chromosome(buffer), LocalAncestry.QGIO._buffer_position(buffer), LocalAncestry.QGIO._buffer_identifier(buffer))]
+            LocalAncestry.QGIO._buffer_haplotypes!(haplotypes, buffer)
 
             # For each population
 
