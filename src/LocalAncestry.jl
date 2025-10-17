@@ -20,6 +20,7 @@ MAX_BLOCK_FRACTION::Float64 = 0.1
 # Write your package code here.
 include("library.jl")
 include("interfaces.jl")
+include("check.jl")
 include("misc.jl")
 include("predict.jl")
 include("QGIO.jl/QGIO.jl")

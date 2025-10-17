@@ -13,10 +13,10 @@ function get_local_ancestries(
     # Print input
     LocalAncestry.printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, nbcprob, printlevel, maf)
 
-    # Read reference locus information
-    println("\nReading the reference loci")
-    refloci = LocalAncestry.QGIO.loci(referencepath)
-    LocalAncestry.QGIO._print_loci(refloci)
+    # Checks
+    println("\nReading the locus information")
+    wloci = LocalAncestry.check_loci(referencepath, targetpath)
+    LocalAncestry.QGIO._print_loci(wloci)
 
     # Read reference ancestries
     println("\nReading the reference ancestries")
@@ -34,29 +34,29 @@ function get_local_ancestries(
     println("\nNumber of haplotypes")
     LocalAncestry.QGIO._print_samples(LocalAncestry.QGIO.samples(referencepath), ancestry, omits)
 
-    # Subset loci
+    # Subset loci (This needs a speed-up)
     println("\nSubsetting loci")
-    chromosome = chromosome == "" ? refloci.chromosome[1] : LocalAncestry.QGIO.convert_chromosome(chromosome, refloci)
+    chromosome = chromosome == "" ? wloci.chromosome[1] : LocalAncestry.QGIO.convert_chromosome(chromosome, wloci)
     if maf > NEARZERO_FLOAT
-        LocalAncestry.QGIO.allelefreq!(refloci, referencepath, omits = omits, ancestries = ancestry)
-        refloci[:,"maftoolow"] = refloci.allelefreq .< maf
+        LocalAncestry.QGIO.allelefreq!(wloci, referencepath, omits = omits, ancestries = ancestry)
+        wloci[:,"maftoolow"] = wloci.allelefreq .< maf
     else
-        QGIO.allelefreq!(refloci, referencepath, omits = omits)
-        refloci[:,"maftoolow"] .= false
+        QGIO.allelefreq!(wloci, referencepath, omits = omits)
+        wloci[:,"maftoolow"] .= false
     end
 
     # Subset based on chromosome
-    refloci[:,"wrongchromosome"] = refloci.chromosome .!= chromosome
+    wloci[:,"wrongchromosome"] = wloci.chromosome .!= chromosome
 
     # Delete omitted loci
-    LocalAncestry.QGIO._print_locussubset(refloci, maf)
-    deleteat!(refloci, findall(refloci.maftoolow .| refloci.wrongchromosome))
+    LocalAncestry.QGIO._print_locussubset(wloci, maf)
+    deleteat!(wloci, findall(wloci.maftoolow .| wloci.wrongchromosome))
 
     # Calculate per-locus informativeness for assignment
-    QGIO.inform_for_assign!(refloci, mode = "min")
+    QGIO.inform_for_assign!(wloci, mode = "min")
     
     println("\nReading the reference haplotypes")
-    refdata, refsamples = LocalAncestry.QGIO.haplotypes(referencepath, loci = refloci, ancestries = ancestry, omits = omits)
+    refdata, refsamples = LocalAncestry.QGIO.haplotypes(referencepath, loci = wloci, ancestries = ancestry, omits = omits)
     
     # Set popdict
     println("\nMapping reference ancestries")
@@ -65,14 +65,15 @@ function get_local_ancestries(
 
     # Get haplotype library
     println("\nGetting haplotype library")
-    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold, refloci)
+    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold, wloci)
 
     # Estimating Local ancestries
     println("\nReading the target haplotypes")
-    targetdata, targetsamples = QGIO.haplotypes(targetpath, loci = refloci)
+    targetdata, targetsamples = QGIO.haplotypes(targetpath, loci = wloci)
     
+    # Assign
     println("\nAssigning local ancestries")
     assignments =  LocalAncestry.assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel)
-    pretty!(assignments, chromosome, refloci)
+    pretty!(assignments, chromosome, wloci)
     return assignments[:,["individual", "chromosome", "haplotype", "basepairs", "ancestry"]]
 end

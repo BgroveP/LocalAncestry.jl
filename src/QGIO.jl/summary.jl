@@ -31,14 +31,14 @@ function allelefreq!(loci,
     locusentry = 0
     while QGIO.readline!(file, buffer)
         if buffer[1] != UInt8('#')
-            locusentry = locus_dictionary[(QGIO._buffer_chromosome(buffer), QGIO._buffer_position(buffer), QGIO._buffer_identifier(buffer))]
+            locusentry = get(locus_dictionary, (QGIO._buffer_chromosome(buffer), QGIO._buffer_position(buffer), QGIO._buffer_identifier(buffer)), missing)
+
+            if ~ismissing(locusentry)
             QGIO._buffer_haplotypes!(haplotypes, buffer)
-
-            # For each population
-
             for ip in eachindex(pops)
                 @views loci[locusentry, outcols1[ip]] = sum(haplotypes[ipops[ip]])
             end
+        end
         end
     end
 
