@@ -42,25 +42,25 @@ This function infers local ancestries. It is meant as a one-function interface t
 - `referenceVCF::String`: The relative path to .vcf file with phased genotypes of reference individuals.
 - `targetVCF::String`: The relative path to .vcf file with phased genotypes of target individuals.
 - `referenceAncestries::DataFrame`: Two-column (["individual", "ancestry"]) DataFrame with ancestries of reference individuals.
-- `priorsMethod::String`: The method for calculating priors for the Naive Bayes Classification step (flat, CGR). We recommend flat priors for now.
+- `priorsMethod::String`: The method for calculating priors for the Bayesian Classification step (flat, CGR). We recommend flat priors for now.
 - `minBlockSize::Int64`: The minimal size of haplotype blocks.
 - `incrBlockSize::Int64`: The incremental size of haplotype blocks.
 - `blockCrit::Float64`: The stopping criterion for building haplotype blocks. Smaller values provide larger haplotype blocks.
-- `minNBCProb::Float64`: The lower threshold for posterior probabilities. Posterior probabilities above this threshold is assigned with the Naive Bayes Classification step, while those below the threshold will be assigned with the Hidden Markov step. 
+- `minNBCProb::Float64`: The lower threshold for posterior probabilities. Posterior probabilities above this threshold is assigned with the Bayesian Classification step, while those below the threshold will be assigned with the Hidden Markov step. 
 
 ### Returns
-- `postProb::OrderedDict{String, Vector{OrderedDict{String, Float64}}}`: The posterior probabilities from the Naive Bayes step.
+- `postProb::OrderedDict{String, Vector{OrderedDict{String, Float64}}}`: The posterior probabilities from the Bayesian step.
 - `postClass::OrderedDict{String, Vector{String}}`: The assigned populations after the Hidden Markov model step.
 - `haplotypeLibrary::OrderedDict{}`: The library of haplotype blocks.
 
 This function loads phased genotypes for both reference individuals and target individuals, 
 builds the library of haplotype blocks, 
-predicts local ancestry using Naive Bayes Classification, 
+predicts local ancestry using Bayesian Classification, 
 and lastly it reinforces the assignment using Hidden Markov models.
 
 ## Planned changes
 - Fine-tuning of model parameters.
 - Speed-up and parallelization of processes.
 - Expanded support for input and output to make incorporation into existing pipelines easier.
-- Options for supplying priors to the Naive Bayes Classification step that improve accuracy of assignment.
+- Options for supplying priors to the Bayesian Classification step that improve accuracy of assignment.
 - Make the code adhere to the blue style for the Julia language.
