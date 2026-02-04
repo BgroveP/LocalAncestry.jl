@@ -25,12 +25,7 @@ get_local_ancestries(
     referencepath::AbstractString,
     targetpath::AbstractString,
     ancestrypath::String;
-    ,
-    ,
-    nbcprob::Float64=0.99,
-    maf::Float64=0.0001,
-    printlevel::String="standard"
-)
+    ...)
 ```
 
 ### Optional parameters
@@ -40,24 +35,7 @@ The optional parameters for the get_local_ancestries function are:
 3. *threshold::Float64=0.66* is the stopping criterion for building chromosomal regions using the informativeness for assignment statistic.
 4. *maf::Float64=0.0001* is the across-population minor allele frequencies required among reference individuals for a locus to be included in the analysis.
 
-### Purpose
-This function infers local ancestries. It is meant as a one-function interface to the entire inference process. 
-
-### Arguments
-
-- `referencepath::AbstractString`: The relative path to .vcf file with phased genotypes of reference individuals.
-- `targetpath::AbstractString`: The relative path to .vcf file with phased genotypes of target individuals.
-- `ancestrypath::String`: The relative path to a delimited file with ancestries of reference individuals with two columns: individual and population.
-- `omitpath::String`: The relative path to a delimited file with omitted reference individuals with two columns: individual and haplotype.
-- `chromosome::Union{Int,AbstractString}`: The focal chromosome as either integer or string: 1, "1", or "chr1".
-- `threshold::Float64`: The lower threshold for the informativeness for assignment statistic when building haplotype blocks.
-- `nbcprob::Float64`: The lower limit for posterior probabilities for the Bayesian Classification step.
-- `maf::Float64`: The lower limit for the minor allele frequency among reference individuals (omission of loci).
-- `printlevel::String`: The output level. 
-
 ### Returns
 - `x::DataFrame`: A DataFrame object with columns ....
 
-## Planned changes
-- Expanded support for input and output to make incorporation into existing pipelines easier.
-- Make the code adhere to the blue style for the Julia language.
+
