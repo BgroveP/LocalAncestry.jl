@@ -13,12 +13,21 @@ function assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel
         haplotype=Vector{Int64}(),
         block=Vector{UnitRange}(),
         ancestry=Vector{String}())
+    
+
     # Locks
     writelock = ReentrantLock()
 
     # Do work
     @threads for c in 1:NCHUNKS
         # Internal initialization
+        totcm = 100
+        percm = totcm/(size(targetdata,2)-1) 
+        pcross = (1/2) * (1 - exp(-2 * percm/100)) 
+        pdif = (npopulations-1)/npopulations
+        r = pdif * pcross
+        a = 1-npopulations*r
+        b = r
         probabilities = zeros(Float64, length(keys(popDict)), length(blocks))
         ancestry = zeros(Int8, length(blocks))
         internal_ancestries = zeros(Int8, length(blocks), PLOIDITY * length(chunks[c]))
@@ -33,17 +42,10 @@ function assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel
                 internal_haplotypecol = PLOIDITY * i - abs(h - 2)
 
                 for (ib, b) in enumerate(blocks)
-                    probabilities[:, ib] = get(library[b], targetdata[haplotyperow, b], default_probabilities)
+                    probabilities[:, ib] = 0.9 .* get(library[b], targetdata[haplotyperow, b], default_probabilities) .+ (0.1 * 1/npopulations)
                 end
 
-                for p in 1:npopulations
-                    ancestry[probabilities[p, :].>=nbcprob] .= p
-                end
-
-                # Assign missing
-                if any(ancestry .> 0) & (printlevel != "debug")
-                    assign_missing!(probabilities, ancestry)
-                end
+                hmm_all!(ancestry, probabilities, a,b)
 
                 ## Allocate to internal memory
                 internal_ancestries[:, internal_haplotypecol] = ancestry
@@ -110,6 +112,33 @@ function hmm!(ancestry, probabilities, s, e)
     forward = forward .* backward
 
     ancestry[workrange2] = ancestry[[s - 1, e]][last.(findmax.(eachcol(forward)[2:(end-1)]))]
+    return nothing
+end
+
+
+function hmm_all!(ancestry, probabilities, a, b)
+
+    # Setup
+    ib::Int = 0
+    n = length(ancestry)
+    forward = deepcopy(probabilities)
+    backward = deepcopy(probabilities)
+
+    for i in axes(forward, 2)[2:end]
+        # Forward
+        @views forward[:, i] = forward[:, i] .* (forward[:, i-1] .* a .+ (b*sum(forward[:, i-1])))
+        forward[:, i] = forward[:, i]/sum(forward[:, i])
+
+        # Backward
+        ib = n - i + 1
+        @views backward[:, ib] = backward[:, ib] .* (backward[:, ib+1] .* a .+ (b*sum(backward[:, ib+1])))
+        backward[:, ib] = backward[:, ib]/sum(backward[:, ib])
+    end
+
+    # Viterby
+    forward = forward .* backward
+
+    ancestry[:] = last.(findmax.(eachcol(forward)))
     return nothing
 end
 
