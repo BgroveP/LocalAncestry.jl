@@ -21,21 +21,8 @@ Pkg.add("LocalAncestry")
 ## Public API
 The user of this package only need to run one function to estimate local ancestries:
 
-```@meta
-CurrentModule = LocalAncestry
-```
-
-```@docs
-get_local_ancestries(
-    referencepath::AbstractString,
-    targetpath::AbstractString,
-    ancestrypath::String;
-    omitpath::String="",
-    chromosome::Union{Int,AbstractString}="",
-    threshold::Float64=0.66,
-    maf::Float64=0.0001,
-    printlevel::String="standard"
-    )
+```@autodocs
+Modules = [LocalAncestry]
 ```
 
 ### Returns
