@@ -4,7 +4,6 @@ module QGIO
 using CSV
 using DataFrames
 using GZip
-using PrettyTables
 
 # Constants
 READLINE_BUFFER_SIZE = 10000

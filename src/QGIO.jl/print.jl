@@ -12,7 +12,7 @@ function _print_ancestries(x)
     println("")
     println("Number of haplotypes per population")
     append!(tmp, DataFrame(population = "Any", col1 = sum(tmp.col1), col2 = sum(tmp.col2), col3 = sum(tmp.col3), used = sum(tmp.used)))
-    pretty_table(tmp, header=["Reference population", "Ancestries", "Haplotypes", "Omitted", "Included"], hlines =[0,1,nrow(tmp),nrow(tmp)+1])
+    PrettyTables.pretty_table(tmp, header=["Reference population", "Ancestries", "Haplotypes", "Omitted", "Included"], hlines =[0,1,nrow(tmp),nrow(tmp)+1])
 end
 
 
