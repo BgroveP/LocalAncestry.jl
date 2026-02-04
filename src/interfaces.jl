@@ -5,13 +5,12 @@ function get_local_ancestries(
     ancestrypath::String;
     omitpath::String="",
     chromosome::Union{Int,AbstractString}="",
-    threshold::Float64=0.13,
-    nbcprob::Float64=0.99,
+    threshold::Float64=0.66,
     maf::Float64=0.0001,
     printlevel::String="standard"
 )
     # Print input
-    LocalAncestry.printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, nbcprob, printlevel, maf)
+    LocalAncestry.printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf)
 
     # Checks
     println("\nReading the locus information")
@@ -74,7 +73,7 @@ function get_local_ancestries(
     
     # Assign
     println("\nAssigning local ancestries")
-    assignments =  LocalAncestry.assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel)
+    assignments =  LocalAncestry.assign(library, targetdata, targetsamples, popDict)
     pretty!(assignments, chromosome, wloci)
     return assignments[:,["individual", "chromosome", "haplotype", "basepairs", "ancestry"]]
 end

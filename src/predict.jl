@@ -1,5 +1,5 @@
 
-function assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel)
+function assign(library, targetdata, targetsamples, popDict)
 
     # Split into worker threads
     targetind = unique(targetsamples.individual)

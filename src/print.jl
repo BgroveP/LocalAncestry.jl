@@ -1,5 +1,5 @@
 
-function printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, nbcprob, printlevel, maf)
+function printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf)
 
     println("")
     println("LocalAncestry.jl v1.0.0")
@@ -14,7 +14,6 @@ function printinput(chromosome, referencepath, targetpath, ancestrypath, thresho
     println("   Chromosome       $(chromosome)")
     println("   MAF threshold    $(maf)")
     println("   IA threshold     $(threshold)")
-    println("   NBC threshold    $(nbcprob)")
     println("   N threads        $(nthreads())")
     
     if printlevel == "debug"
