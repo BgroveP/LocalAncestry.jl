@@ -1,215 +1,80 @@
-"""
-    get_local_ancestries(chromosome::Union{Int64,String}, 
-                          referenceVCF::String, 
-                          targetVCF::String, 
-                          referenceAncestries::DataFrame; 
-                          priorsMethod::String = "flat", 
-                          minBlockSize::Int64 = 5, 
-                          incrBlockSize::Int64 = 1, 
-                          blockCrit::Float64 = 0.2, 
-                          minNBCProb::Float64 = 0.95)
-# Purpose
-This function infers local ancestries. It is meant as a one-function interface to the entire inference process. 
 
-# Arguments
-- `chromosome::Union{Int64, String}`: The focal chromosome. Autosomal chromosomes can be denoted by their number as e.g.: 1, "1", or "chr1".
-- `referenceVCF::String`: The relative path to .vcf file with phased genotypes of reference individuals.
-- `targetVCF::String`: The relative path to .vcf file with phased genotypes of target individuals.
-- `referenceAncestries::DataFrame`: Two-column (["individual", "ancestry"]) DataFrame with ancestries of reference individuals.
-- `priorsMethod::String`: The method for calculating priors for the Naive Bayes Classification step (flat, CGR). We recommend flat priors for now.
-- `minBlockSize::Int64`: The minimal size of haplotype blocks.
-- `incrBlockSize::Int64`: The incremental size of haplotype blocks.
-- `blockCrit::Float64`: The stopping criterion for building haplotype blocks. Smaller values provide larger haplotype blocks.
-- `minNBCProb::Float64`: The lower threshold for posterior probabilities. Posterior probabilities above this threshold is assigned with the Naive Bayes Classification step, while those below the threshold will be assigned with the Hidden Markov step. 
-
-# Returns
-- `postProb::OrderedDict{String, Vector{OrderedDict{String, Float64}}}`: The posterior probabilities from the Naive Bayes step.
-- `postClass::OrderedDict{String, Vector{String}}`: The assigned populations after the Hidden Markov model step.
-- `haplotypeLibrary::OrderedDict{}`: The library of haplotype blocks.
-
-"""
 function get_local_ancestries(
-    chromosome::Union{Int64,String},
-    referenceVCF::String,
-    targetVCF::String,
-    referenceAncestries::DataFrame;
-    priorsMethod::String="flat",
-    minBlockSize::Int64=5,
-    incrBlockSize::Int64=1,
-    blockCrit::Float64=0.2,
-    minNBCProb::Float64=0.95,
+    referencepath::AbstractString,
+    targetpath::AbstractString,
+    ancestrypath::String;
+    omitpath::String="",
+    chromosome::Union{Int,AbstractString}="",
+    threshold::Float64=0.13,
+    nbcprob::Float64=0.99,
+    maf::Float64=0.0001,
+    printlevel::String="standard"
 )
+    # Print input
+    LocalAncestry.printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, nbcprob, printlevel, maf)
 
-    # Constants
-    ploidity = 2
-    predictType = "Naive Bayes"
-    assignType = "Hidden Markov"
-    probStayState = 0.99
+    # Checks
+    println("\nReading the locus information")
+    wloci = LocalAncestry.check_loci(referencepath, targetpath)
+    LocalAncestry.QGIO._print_loci(wloci)
 
-    ## Read haplotype data
-    referenceData, referenceIndividuals = LocalAncestry.readVCF(referenceVCF, chromosome)
-    targetData, targetIndividuals = LocalAncestry.readVCF(targetVCF, chromosome)
-    referenceAncestriesVector = LocalAncestry.haplotypeOrigins(
-        referenceIndividuals, referenceAncestries
-    )
+    # Read reference ancestries
+    println("\nReading the reference ancestries")
+    ancestry = LocalAncestry.QGIO.read_dataframe(ancestrypath, "ancestry", ["individual", "population"], [String, String])
+    LocalAncestry.QGIO._print_ancestry(ancestry)
 
-    # Get population information
-    populations = unique(referenceAncestriesVector)
-    popDict = LocalAncestry.getPopulationDictionary(referenceAncestriesVector)
+    # Read reference omits
+    if omitpath != ""
+        omits = QGIO.read_dataframe(omitpath, "omission", ["individual", "haplotype"], [String, Int])
+    else
+        omits = DataFrame(individual=String[], haplotype=Int[])
+    end
+    
+    # Print sample summary
+    println("\nNumber of haplotypes")
+    LocalAncestry.QGIO._print_samples(LocalAncestry.QGIO.samples(referencepath), ancestry, omits)
+
+    # Subset loci (This needs a speed-up)
+    println("\nSubsetting loci")
+    chromosome = chromosome == "" ? wloci.chromosome[1] : LocalAncestry.QGIO.convert_chromosome(chromosome, wloci)
+    if maf > NEARZERO_FLOAT
+        LocalAncestry.QGIO.allelefreq!(wloci, referencepath, omits = omits, ancestries = ancestry)
+        wloci[:,"maftoolow"] = wloci.allelefreq .< maf
+    else
+        QGIO.allelefreq!(wloci, referencepath, omits = omits)
+        wloci[:,"maftoolow"] .= false
+    end
+
+    # Subset based on chromosome
+    wloci[:,"wrongchromosome"] = wloci.chromosome .!= chromosome
+
+    # Delete omitted loci
+    LocalAncestry.QGIO._print_locussubset(wloci, maf)
+    deleteat!(wloci, findall(wloci.maftoolow .| wloci.wrongchromosome))
+
+    # Calculate per-locus informativeness for assignment
+    QGIO.inform_for_assign!(wloci, mode = "min")
+    
+    println("\nReading the reference haplotypes")
+    refdata, refsamples = LocalAncestry.QGIO.haplotypes(referencepath, loci = wloci, ancestries = ancestry, omits = omits)
+    
+    # Set popdict
+    println("\nMapping reference ancestries")
+    pdf = combine(groupby(refsamples, "population"), :xrow .=> [minimum, maximum] .=> ["min", "max"])
+    popDict = Dict(String.(pdf.population) .=> UnitRange.(pdf.min, pdf.max))
 
     # Get haplotype library
-    haplotypeLibrary, nHaplotypeBlocks = getHaploBlocks(
-        minBlockSize, incrBlockSize, blockCrit, referenceData, popDict, 1
-    )
+    println("\nGetting haplotype library")
+    library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold, wloci)
+    println("-number of blocks: $(length(keys(library)))")
 
-    # Get priors
-    priorProb, priorLevel = LocalAncestry.getPriors(
-        referenceAncestriesVector,
-        referenceData,
-        targetIndividuals,
-        targetData,
-        priorsMethod,
-    )
-
-    # Get log-likelihoods
-    LL = LocalAncestry.calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
-
-    # predict
-    postProb = LocalAncestry.getProbabilities(
-        predictType,
-        targetIndividuals,
-        ploidity,
-        LL,
-        populations,
-        nHaplotypeBlocks,
-        priorProb,
-        priorLevel,
-        probStayState,
-        targetData,
-    )
-    postClass = LocalAncestry.getAssignments(
-        assignType,
-        postProb,
-        populations,
-        LL,
-        minNBCProb,
-        targetIndividuals,
-        ploidity,
-        haplotypeLibrary,
-    )
-
-    return postProb, postClass, haplotypeLibrary
-end
-
-function getPriors(
-    referenceAncestriesVector, referenceData, targetIndividuals, targetData, priorsMethod
-)
-    if priorsMethod == "flat"
-        x, n = priorsFlat(referenceAncestriesVector, targetIndividuals)
-    elseif priorsMethod[1:3] == "CGR"
-        x, n = priorsCGR(
-            referenceData,
-            targetData,
-            targetIndividuals,
-            referenceAncestriesVector,
-            priorsMethod,
-        )
-    else
-        throw(DomainError(priorsMethod, "Expected 'flat' or 'CGR'"))
-    end
-
-    return x, n
-end
-
-function getProbabilities(
-    predictType,
-    targetIndividuals,
-    ploidity,
-    LL,
-    populations,
-    nHaplotypeBlocks,
-    priorProb,
-    priorLevel,
-    probStayState,
-    targetData,
-)
-
-    # Instantiate output
-    postProb = OrderedDict(
-        zip(
-            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-            [
-                OrderedDict(
-                    populations .=> [
-                        Vector{Union{Missing,Float64}}(missing, nHaplotypeBlocks) for
-                        i in 1:length(populations)
-                    ],
-                ) for l in 1:length(targetIndividuals) for h in 1:ploidity
-            ],
-        ),
-    )
-
-    if predictType == "Naive Bayes"
-        predictNaiveBayes!(
-            postProb,
-            targetData,
-            targetIndividuals,
-            ploidity,
-            LL,
-            populations,
-            nHaplotypeBlocks,
-            priorProb,
-            priorLevel,
-        )
-    elseif predictType == "Hidden Markov"
-        predictHiddenMarkov!(
-            postProb,
-            LL,
-            populations,
-            targetIndividuals,
-            probStayState,
-            targetData;
-            ploidity=ploidity,
-        )
-    else
-        throw(DomainError(predictType, "Expected 'Naive Bayes' or 'Hidden Markov'"))
-    end
-    return postProb
-end
-
-function getAssignments(
-    assignType,
-    postProb,
-    populations,
-    LL,
-    minNBCProb,
-    targetIndividuals,
-    ploidity,
-    haplotypeLibrary,
-)
-
-    # Instantiate output
-    postClass = OrderedDict(
-        zip(
-            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-            [
-                Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for
-                l in 1:length(targetIndividuals) for h in 1:ploidity
-            ],
-        ),
-    )
-
-    # Assign certain blocks
-    assignCertain!(postClass, postProb, populations, LL, minNBCProb)
-
-    # Assign the rest
-    if assignType == "none"
-    elseif assignType == "probonly"
-        assignFirst!(postClass, postProb)
-    elseif assignType == "Hidden Markov"
-        assignHMM!(postClass, postProb)
-    else
-        throw(DomainError(assignType, "Expected 'probonly' or 'Hidden Markov'"))
-    end
-    return postClass
+    # Estimating Local ancestries
+    println("\nReading the target haplotypes")
+    targetdata, targetsamples = QGIO.haplotypes(targetpath, loci = wloci)
+    
+    # Assign
+    println("\nAssigning local ancestries")
+    assignments =  LocalAncestry.assign(library, targetdata, targetsamples, nbcprob, popDict, printlevel)
+    pretty!(assignments, chromosome, wloci)
+    return assignments[:,["individual", "chromosome", "haplotype", "basepairs", "ancestry"]]
 end

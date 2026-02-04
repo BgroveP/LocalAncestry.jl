@@ -1,124 +1,49 @@
-
-function vvToV(x)
-    # Initialize an empty Vector{Int64} to store the result
-    flattened_vector = Int64[]
-
-    # Iterate over each vector of ranges
-    for range_vector in x
-        # Iterate over each range in the current vector
-        for range in range_vector
-            # Append each integer in the range to the flattened vector
-            append!(flattened_vector, collect(range))
-        end
-    end
-
-    return flattened_vector
-end
-
-function haplotypeOrigins(i::Vector{String}, o::DataFrames.DataFrame)
-    x = DataFrames.DataFrame(; individual=repeat(i; inner=2))
-    y = string.(DataFrames.leftjoin(x, o; on="individual")[!, "population"])
-
-    # Asserts
-    assertVector(y, "The vector with origins of reference individuals")
-
-    # Return
-    return y
-end
-
-function rangeChange(rObject; firstInc=0, firstDec=0, lastInc=0, lastDec=0)
-    (first(rObject) + firstInc - firstDec):(last(rObject) + lastInc - lastDec)
-end
-
-function countThisHaploNumber(X, t)
-    count = 0
-    for x in eachrow(X)
-        if all(x .== t)
-            count += 1
-        end
-    end #Loop over training set
-    return count
-end
-
-function getDictionaryCrosssection(x, y)
-    return getindex.(collect(values.(Ref(x))), y)
-end
-
-function searchForward(est0_ind, prob0_ind, pos)
-    countForward = 1
-    while ismissing(est0_ind[pos + countForward])
-        countForward += 1
-        if (pos + countForward) > length(est0_ind)
-            countForward = 0
-            break
-        end
-    end
-    forward = getDictionaryCrosssection(prob0_ind, pos + countForward)
-    return forward, countForward
-end
-
-function searchBackwards(est0_ind, prob0_ind, pos)
-    countBackwards = 1
-    while ismissing(est0_ind[pos - countBackwards])
-        countBackwards += 1
-        if (pos - countBackwards) < 1
-            countBackwards = 0
-            break
-        end
-    end
-    #    println("counted $countBackwards steps backwards for pos $pos")
-    backwards = getDictionaryCrosssection(prob0_ind, pos - countBackwards)
-    return backwards, countBackwards
-end
-
-function rangeFromString(x)
-    startAndStop = parse.(Int, split(x, ":"))
-    range = startAndStop[1]:startAndStop[2]
-    return range
-end
-
-function getPopulationDictionary(x)
-    y = Dict{String,Vector{Int64}}()
-    for i in unique(x)
-        y[i] = findall(i .== x)
-    end
-    return y
-end
-
-function alleleFrequencies(x, y)
-    pops = getPopulations(y)
-    p = zeros(Float32, size(x, 2), length(pops))
-    for (j, pop) in enumerate(pops)
-        rows = findall(pop .== y)
-        p[:, j] = Statistics.mean(x[rows, :]; dims=1)
-    end
-
-    return p
-end
-
-function instantiateOutput()
-    postClass = OrderedDict(
-        zip(
-            [i * "_hap" * string(h) for h in 1:ploidity for i in targetIndividuals],
-            [
-                Vector{Union{Missing,String}}(missing, length(haplotypeLibrary)) for
-                l in 1:length(targetIndividuals) for h in 1:ploidity
-            ],
-        ),
-    )
-
-    return postProb, postClass
-end
-
-function calculateBlockFrequencies(haplotypeLibrary, referenceData, popDict)
-    LL = OrderedDict()
-    for (region, Haplo) in haplotypeLibrary
-        LL[region] = getLL(region, Haplo, referenceData, popDict)
-    end
-
-    return LL
-end
-
 function mean(x)
     return sum(x) / length(x)
+end
+
+
+
+function vecsplit(x::Union{UnitRange{Int}, AbstractVector}, n::Int)
+    y = Vector{typeof(x)}(undef, n)
+    z::Int = length(x)
+    r::Int = z
+    for i in eachindex(y)
+        thistake = ((z-r + 1):z)[1:(Int(ceil(r / (n+1-i))))]
+        y[i] = x[thistake]
+        r = r - length(thistake)
+    end
+    return y
+end
+
+# Taken from StatsBase (renamed. Thank you!)
+function breapeat(vals::AbstractVector{T}, lens::AbstractVector{<:Integer}) where T
+    m = length(vals)
+    mlens = length(lens)
+    mlens == m || throw(DimensionMismatch(
+                        "number of vals ($m) does not match the number of lens ($mlens)"))
+    n = sum(lens)
+    n >= 0 || throw(ArgumentError("lengths must be non-negative"))
+
+    r = Vector{T}(undef, n)
+    p = 0
+    @inbounds for i = 1 : m
+        j = lens[i]
+        j >= 0 || throw(ArgumentError("lengths must be non-negative"))
+        v = vals[i]
+        while j > 0
+            r[p+=1] = v
+            j -=1
+        end
+    end
+    return r
+end
+
+function pretty!(assignments, chromosome, loci)
+    assignments.chromosome .= chromosome
+    assignments.basepairs = UnitRange.(loci.position[first.(assignments.block)], loci.position[last.(assignments.block)])
+end
+
+function get_ancestry(la, h, pos)
+    return la.ancestry[(first.(la.haplotype) .== h) .& (first.(la.basepairs) .<= pos) .& (last.(la.basepairs) .>= pos)]
 end
