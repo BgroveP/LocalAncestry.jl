@@ -5,11 +5,13 @@ using DataFrames
 using Base.Threads
 
 # Full
-@testset "Accuracy" begin
+packageroot = dirname(dirname(pathof(LocalAncestry)))
 
-    dataset = "hapmap3"
-    x = localancestry("data/current_$(dataset)_2000_1.vcf.gz", "data/target_$(dataset)_2000_1.vcf.gz", "data/ga_own_1.csv")
-    y = CSV.read("data/true.csv", DataFrame)
+@testset "Accuracy" begin
+    x = localancestry("$(packageroot)/data/reference.vcf.gz", 
+    "$(packageroot)/data/target.vcf.gz", 
+    "$(packageroot)/data/globalancestries.csv")
+    y = CSV.read("$(packageroot)/data/truelocalancestries.csv", DataFrame)
     y.basepairs = UnitRange.(parse.(Int, replace.(y.basepairs, r"\:.+" => "")), parse.(Int, replace.(y.basepairs, r".+\:" => "")))
     y.ancestry = String.(y.ancestry)
     a = LocalAncestry.evaluate(x, y)
