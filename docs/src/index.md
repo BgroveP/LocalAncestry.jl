@@ -1,10 +1,7 @@
-# LocalAncestry.jl: A Novel Tool for Local Ancestry Inference Using Genome Regions With Variable Lengths
-
-[![Build Status](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Build Status](https://github.com/BgroveP/ARV.jl/actions/workflows/documentation.yml/badge.svg?branch=main)](https://github.com/BgroveP/ARV.jl/actions/workflows/documentation.yml?query=branch%3Amain)
+# LocalAncestry.jl: Local Ancestry Inference Using Genome Regions With Variable Lengths
 
 This Julia package provides an accurate, fast, and accessible means of inferring local ancestries. 
-The package is set apart from existing local ancestry software by being a region-based local ancestry inference tool that allows for regions of variying sizes across the chromosome.
+The package is mainly set apart from existing local ancestry software by being a region-based local ancestry inference tool that allows for regions of variying sizes across the chromosome.
 
 ## Installation
 The package is publicly available through the Julia Ecosystem:
@@ -26,5 +23,9 @@ Modules = [LocalAncestry]
 ```
 
 ### Returns
-- `x::DataFrame`: A DataFrame object with columns ....
+- `x::DataFrame`: A DataFrame object with columns *individual* with String elements, *chromosome* with String elements, *haplotype* with Int elements, *basepairs* with UnitRange elements, and *ancestry* with String elements.
 
+## Citation
+Please cite the package if you use it for scientific publications. We are working on a scientific article that later can be used to refer to the package. 
+
+## License

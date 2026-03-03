@@ -21,7 +21,7 @@ Pkg.add("LocalAncestry")
 ## Public API
 The user of this package only need to run one function to estimate local ancestries:
 ```julia
-get_local_ancestries(
+localancestry(
     referencepath::AbstractString,
     targetpath::AbstractString,
     ancestrypath::String;

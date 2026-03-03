@@ -57,7 +57,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String, Unit
     end
 
     # Create 
-    println("   Haplotype frequencies")
+    println("   Block frequencies")
     haploLib = Dict{UnitRange,Dict{Vector{Int8},Vector{Float64}}}()
     blockchunks = LocalAncestry.vecsplit(blocks, NCHUNKS)
 

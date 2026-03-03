@@ -1,1 +1,0 @@
-## Here common problems and their solutions will be when they have been reported

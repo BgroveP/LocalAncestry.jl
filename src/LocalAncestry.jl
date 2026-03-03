@@ -6,9 +6,6 @@ using CSV
 using DataFrames
 using Dates
 using GZip
-using OrderedCollections
-using Tables
-using VariantCallFormat
 
 # Constants
 READLINE_BUFFER_SIZE = 10000
@@ -28,6 +25,6 @@ include("print.jl")
 include("evaluate.jl")
 include("convert.jl")
 
-export get_local_ancestries
+export localancestry
 
 end

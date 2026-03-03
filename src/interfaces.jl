@@ -1,7 +1,29 @@
 """
+    localancestry(
+        `referencepath`::AbstractString,
+        `targetpath`::AbstractString,
+        `ancestrypath`::String;
+        `omitpath`::String="",
+        `chromosome`::Union{Int,AbstractString}="",
+        `threshold`::Float64=0.66,
+        `maf`::Float64=0.0001,
+        `printlevel`::String="standard"
+        )
 
+    Mandatory inputs:
+    ``referencepath``::AbstractString: The path to a VCF file or compressed VCF file with phased genotypes for reference individuals.
+    `targetpath`::AbstractString: The path to a VCF file or compressed VCF file with phased genotypes for target individuals.
+    `ancestrypath`::String: The path to a delimited file with two named columns: individual and population. 
+    `omitpath`::String="": The path to a delimited file with two named columns: individual and haplotype. An empty string denotes that no haplotypes should be omitted.
+    `chromosome`::Union{Int,AbstractString}="": The focal chromosome. An empty string denotes that the first encountered chromosome in the reference VCF is the focal chromosome.
+    `threshold`::Float64=0.66: The lower-limit for informativeness for assignment when building haplotype blocks.
+    `maf`::Float64=0.0001: The lower limit for the average minor allele frequencies across ancestral population for inclusion into the analysis.
+    `printlevel`::String="standard": Options are standard and debug. Debug prints more text.
+
+    Returns:
+    `x`::DataFrame: A DataFrame object with columns *individual* with String elements, *chromosome* with String elements, *haplotype* with Int elements, *basepairs* with UnitRange elements, and *ancestry* with String elements.
 """
-function get_local_ancestries(
+function localancestry(
     referencepath::AbstractString,
     targetpath::AbstractString,
     ancestrypath::String;
@@ -67,7 +89,7 @@ function get_local_ancestries(
     # Get haplotype library
     println("\nGetting haplotype library")
     library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold, wloci)
-    println("-number of blocks: $(length(keys(library)))")
+    println("   Haplotype blocks: $(length(keys(library)))")
 
     # Estimating Local ancestries
     println("\nReading the target haplotypes")

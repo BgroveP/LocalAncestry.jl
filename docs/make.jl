@@ -9,10 +9,7 @@ makedocs(
     doctest=true,
     highlightsig=true,
     pages=[
-        "Overview" => "index.md",
-        "Citation" => "citation.md",
-        "Release notes" => "releasenotes.md",
-        "Troubleshooting" => "troubleshooting.md"
+        "Overview" => "index.md"
     ]
 )
 
