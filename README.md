@@ -194,3 +194,4 @@ The output is a DataFrame object with 5 columns:
  18161 │ admixed_138779  chr22               2  44270505:50780578  EAS
 ```
 where elements in the *individual* column are the names of individuals as stated in the VCF file, the elements of the *chromosome* column is the focal chromosome, the elements of the *haplotype* column are the haplotype number (LocalAncestry currently only works for diploid organisms), elements of the *basepairs* column are the basepair range, and the elements in the *ancestry* are the predicted ancestries. This output format was chosen because it compressed the output to some extend (block-based output rather than locus-based), while preserving human readability. 
+
