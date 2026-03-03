@@ -89,7 +89,7 @@ function localancestry(
     # Get haplotype library
     println("\nGetting haplotype library")
     library = LocalAncestry.get_haplotype_library(refdata, popDict, threshold, wloci)
-    println("   Haplotype blocks: $(length(keys(library)))")
+    println("   Genome regions: $(length(keys(library)))")
 
     # Estimating Local ancestries
     println("\nReading the target haplotypes")
