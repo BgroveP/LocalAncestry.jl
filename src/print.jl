@@ -2,7 +2,7 @@
 function printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf)
 
     println("")
-    println("LocalAncestry.jl v0.9.0")
+    println("LocalAncestry.jl v0.2.0")
     println("Started at $(Dates.format(now(), "HH:MM:SS on u d, Y")  )")
     println("")
     println("Files")

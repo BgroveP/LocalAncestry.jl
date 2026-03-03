@@ -1,6 +1,6 @@
 name = "LocalAncestry"
 uuid = "9c717bbe-74a8-4a1b-8702-c9261a6bba1a"
-version = "0.9.0"
+version = "0.2.0"
 authors = ["Bjarke G. Poulsen", "Emre Karaman"]
 
 [deps]

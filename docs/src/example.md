@@ -67,7 +67,7 @@ Assigning local ancestries
 To understand what LocalAncestry.jl does, we will explain the output in segments. First, some standard information and the input is printed to the screen for later reference:
 
 ```
-LocalAncestry.jl v0.9.0
+LocalAncestry.jl v0.2.0
 Started at 12:18:11 on Mar 3, 2026
 
 Files
