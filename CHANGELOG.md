@@ -13,7 +13,6 @@
 - Changed dependency on external libraries such as OrderedCollections and VariantCallFormat.
 - Changed the internal algorithm for genetic distances such that they are based on Haldanes function and the number of loci.
 - The maximum block size is fixed at 10 % of the loci.
-- 
 
 ### New Features
 - It is now possible to omit haplotypes from individuals using the omitpath argument.
