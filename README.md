@@ -7,7 +7,7 @@ Now also available at: https://github.com/QGG-Computational-Genomics
 
 This Julia package provides an accurate, fast, and accessible means of inferring local ancestries.
 The package is set apart from existing local ancestry software by being a region-based local ancestry inference tool that allows for regions of varying sizes across the chromosome.
-
+ 
 ## Installation
 The package is publicly available through the Julia Ecosystem:
 ```julia
