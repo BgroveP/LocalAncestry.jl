@@ -1,4 +1,16 @@
 
+"""
+    read_rfmix(file::String, loci)
+
+Read the local ancestry output from RFMix and convert it to the output format
+of `localancestry`.
+
+`file` is the path to the RFMix output file and `loci` is a DataFrame with the
+locus information such as returned by `QGIO.loci`.
+
+Returns a DataFrame with the columns `individual`, `chromosome`, `haplotype`,
+`basepairs`, and `ancestry`.
+"""
 function read_rfmix(file::String, loci)
 
     # Constants
@@ -34,25 +46,36 @@ function read_rfmix(file::String, loci)
     ancestry.basepairs = UnitRange.(first.(ancestry.basepairs[ancestry.startrow]), last.(ancestry.basepairs[ancestry.endrow]))
     deleteat!(ancestry, ancestry.discard)
 
-    # 
     return ancestry[:, outcols]
 end
 
 
+"""
+    write_flare(la, hapfile::String, outfile::String)
+
+Write predicted local ancestries to a phased Variant Call Format file with
+ancestry annotations that can be read by FLARE.
+
+`la` is a DataFrame on the format returned by `localancestry`, `hapfile` is
+the path to the phased VCF file with the target haplotypes, and `outfile` is
+the path to the output file.
+
+Returns `nothing` and writes the output to `outfile`.
+"""
 function write_flare(la, hapfile::String, outfile::String)
 
     # Read input
     populations = sort(unique(la.ancestry))
     header =
-        [replace.(LocalAncestry.QGIO.header(hapfile), '\n' => "");
+        [replace.(QGIO.header(hapfile), '\n' => "");
             ["##FORMAT=<ID=AN1,Number=1,Type=Integer,Description=\"Ancestry of first haplotype\">",
                 "##FORMAT=<ID=AN2,Number=1,Type=Integer,Description=\"Ancestry of second haplotype\">",
                 "##ANCESTRY=<$(join(populations .* "=" .* string.(collect(0:(length(populations)-1))), ","))>"
             ]
         ]
 
-    loci = LocalAncestry.QGIO.loci(hapfile)
-    haplotypes, samples = LocalAncestry.QGIO.haplotypes(hapfile)
+    loci = QGIO.loci(hapfile)
+    haplotypes, samples = QGIO.haplotypes(hapfile)
     loci.format = loci.format .* ":AN1:AN2"
     popdict = Dict(populations .=> string.(0:(length(populations)-1)))
     indsort = [findfirst(unique(la.individual) .== i) for i in unique(samples.individual)]

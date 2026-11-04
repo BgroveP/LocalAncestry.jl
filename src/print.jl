@@ -1,8 +1,7 @@
-# Test
-function printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf)
+function printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf, totcm)
 
     println("")
-    println("LocalAncestry.jl v0.3.0")
+    println("LocalAncestry.jl v$(pkgversion(LocalAncestry))")
     println("Started at $(Dates.format(now(), "HH:MM:SS on u d, Y")  )")
     println("")
     println("Files")
@@ -14,8 +13,9 @@ function printinput(chromosome, referencepath, targetpath, ancestrypath, thresho
     println("   Chromosome       $(chromosome)")
     println("   MAF threshold    $(maf)")
     println("   IA threshold     $(threshold)")
+    println("   Genetic length   $(totcm) cM")
     println("   N threads        $(nthreads())")
-    
+
     if printlevel == "debug"
         println("")
         println("Debug")
@@ -26,13 +26,17 @@ function printinput(chromosome, referencepath, targetpath, ancestrypath, thresho
 end
 
 function _print_cpu()
-    if Sys.islinux() || Sys.isapple()
-        return readchomp(pipeline(`cat /proc/cpuinfo`, `grep "model name"`))
-    elseif Sys.iswindows()
-        return replace(split(readchomp(pipeline(`wmic cpu get name`)), '\n')[2], '\r' => "")
-    else
-        return "Unsupported OS for CPU name detection."
+    try
+        if Sys.islinux()
+            return readchomp(pipeline(`cat /proc/cpuinfo`, `grep "model name"`))
+        elseif Sys.isapple()
+            return readchomp(`sysctl -n machdep.cpu.brand_string`)
+        elseif Sys.iswindows()
+            return replace(split(readchomp(pipeline(`wmic cpu get name`)), '\n')[2], '\r' => "")
+        else
+            return "Unsupported OS for CPU name detection."
+        end
+    catch
+        return "CPU name not available"
     end
 end
-
-

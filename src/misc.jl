@@ -1,9 +1,3 @@
-function mean(x)
-    return sum(x) / length(x)
-end
-
-
-
 function vecsplit(x::Union{UnitRange{Int}, AbstractVector}, n::Int)
     y = Vector{typeof(x)}(undef, n)
     z::Int = length(x)
@@ -17,7 +11,7 @@ function vecsplit(x::Union{UnitRange{Int}, AbstractVector}, n::Int)
 end
 
 # Taken from StatsBase (renamed. Thank you!)
-function breapeat(vals::AbstractVector{T}, lens::AbstractVector{<:Integer}) where T
+function brepeat(vals::AbstractVector{T}, lens::AbstractVector{<:Integer}) where T
     m = length(vals)
     mlens = length(lens)
     mlens == m || throw(DimensionMismatch(

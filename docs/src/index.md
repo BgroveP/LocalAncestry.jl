@@ -1,7 +1,7 @@
 # LocalAncestry.jl: Local Ancestry Inference Using Genome Regions With Variable Lengths
 
 This Julia package provides an accurate, fast, and accessible means of inferring local ancestries. 
-The package is mainly set apart from existing local ancestry software by being a region-based local ancestry inference tool that allows for regions of variying sizes across the chromosome.
+The package is mainly set apart from existing local ancestry software by being a region-based local ancestry inference tool that allows for regions of varying sizes across the chromosome.
 
 ## Installation
 The package is publicly available through the Julia Ecosystem:

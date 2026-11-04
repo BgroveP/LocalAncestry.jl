@@ -6,15 +6,16 @@ using CSV
 using DataFrames
 using Dates
 using GZip
+using Sockets
+using Statistics: mean
 
 # Constants
-READLINE_BUFFER_SIZE = 10000
 PLOIDITY = 2
 NEARZERO_FLOAT::Float64 = 0.0000000000001
 HMM_STATECHANGE_PROB::Float64 = NEARZERO_FLOAT
 MAX_BLOCK_FRACTION::Float64 = 0.1
 
-# Write your package code here.
+# Include
 include("library.jl")
 include("interfaces.jl")
 include("check.jl")
@@ -25,6 +26,6 @@ include("print.jl")
 include("evaluate.jl")
 include("convert.jl")
 
-export localancestry
+export localancestry, read_rfmix, write_flare
 
 end

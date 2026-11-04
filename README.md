@@ -1,12 +1,12 @@
 # LocalAncestry.jl: A Novel Tool for Local Ancestry Inference Using Genome Regions With Variable Lengths
 
-[![Build Status](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/BgroveP/ARV.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Build Status](https://github.com/BgroveP/ARV.jl/actions/workflows/documentation.yml/badge.svg?branch=main)](https://github.com/BgroveP/ARV.jl/actions/workflows/documentation.yml?query=branch%3Amain)
+[![Build Status](https://github.com/BgroveP/LocalAncestry.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/BgroveP/LocalAncestry.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/BgroveP/LocalAncestry.jl/actions/workflows/documentation.yml/badge.svg?branch=main)](https://github.com/BgroveP/LocalAncestry.jl/actions/workflows/documentation.yml?query=branch%3Amain)
 
 Now also available at: https://github.com/QGG-Computational-Genomics
 
-This Julia package provides an accurate, fast, and accessible means of inferring local ancestries. 
-The package is set apart from existing local ancestry software by being a region-based local ancestry inference tool that allows for regions of variying sizes across the chromosome.
+This Julia package provides an accurate, fast, and accessible means of inferring local ancestries.
+The package is set apart from existing local ancestry software by being a region-based local ancestry inference tool that allows for regions of varying sizes across the chromosome.
 
 ## Installation
 The package is publicly available through the Julia Ecosystem:
@@ -16,12 +16,12 @@ Pkg.add("LocalAncestry")
 ```
 
 ## Required inputs
-1. A Variant Call Format file with phased genotypes for reference individuals. 
-2. A Variant Call Format file with phased genotypes for target individuals. 
-3. A delimited file with ancestries of reference individuals (one ancestry per individual). 
+1. A Variant Call Format file with phased genotypes for reference individuals.
+2. A Variant Call Format file with phased genotypes for target individuals.
+3. A delimited file with ancestries of reference individuals (one ancestry per individual).
 
 ## Public API
-The user of this package only need to run one function to estimate local ancestries:
+The user of this package only needs to run one function to estimate local ancestries:
 ```julia
 localancestry(
     referencepath::AbstractString,
@@ -31,34 +31,36 @@ localancestry(
 ```
 
 ### Optional parameters
-The optional parameters for the get_local_ancestries function are:
-1. *omitpath::String=""* which is an absolute or relative path to a delimited file with information that denotes the haplotypes that should be excluded from the reference panel. The delimited file contains two columns: *individual* and *haplotype*.
-2. *chromosome::Union{Int,AbstractString}=""* which is the focal chromosome for the local ancestry inference. The default behaviour is to analyze the chromosome that is encountered first in the Variant Call Format file for reference individuals.
-3. *threshold::Float64=0.66* is the stopping criterion for building chromosomal regions using the informativeness for assignment statistic.
-4. *maf::Float64=0.0001* is the across-population minor allele frequencies required among reference individuals for a locus to be included in the analysis.
+The optional parameters for the `localancestry` function are:
+1. `omitpath::String=""` which is an absolute or relative path to a delimited file with information that denotes the haplotypes that should be excluded from the reference panel. The delimited file contains two columns: *individual* and *haplotype*.
+2. `chromosome::Union{Int,AbstractString}=""` which is the focal chromosome for the local ancestry inference. The default behaviour is to analyze the chromosome that is encountered first in the Variant Call Format file for reference individuals.
+3. `threshold::Float64=0.66` is the stopping criterion for building chromosomal regions using the informativeness for assignment statistic.
+4. `maf::Float64=0.0001` is the across-population minor allele frequencies required among reference individuals for a locus to be included in the analysis.
+5. `totcm::Float64=100.0` is the genetic length of the focal chromosome in centiMorgans, which is used for the state-transition probabilities of the hidden Markov model.
+6. `printlevel::String="standard"` is either `"standard"` or `"debug"`, where `"debug"` prints additional information about the host machine.
 
 ### Returns
-- `x::DataFrame`: A DataFrame object with columns ....
+- `x::DataFrame`: A DataFrame object with the columns *individual* with String elements, *chromosome* with String elements, *haplotype* with Int elements, *basepairs* with UnitRange elements, and *ancestry* with String elements.
 
 ## Citation
-Please cite the package if you use it for scientific publications. We are working on a scientific article that later can be used to refer to the package. 
+Please cite the package if you use it for scientific publications. We are working on a scientific article that later can be used to refer to the package.
 
 ## Example using human data simulated from The 1000 Genomes project and with the HapMap3 genomic map
 
-There is only one function in LocalAncestry.jl that is exposed for public use. This function is the *localancestry* function, and it is a wrapper function that reads the reference information, creates a library of haplotype blocks, and infers local ancestries for target individuals using the library and a Hidden Markov model. This function can be used on the data that is provided with the LocalAncestry.jl package:
+There is only one function in LocalAncestry.jl that is exposed for public use. This function is the `localancestry` function, and it is a wrapper function that reads the reference information, creates a library of haplotype blocks, and infers local ancestries for target individuals using the library and a Hidden Markov model. This function can be used on the data that is provided with the LocalAncestry.jl package:
 
 ```julia
 using LocalAncestry
 
 packageroot = dirname(dirname(pathof(LocalAncestry)))
-x = localancestry("$(packageroot)/data/reference.vcf.gz", 
-                  "$(packageroot)/data/target.vcf.gz", 
+x = localancestry("$(packageroot)/data/reference.vcf.gz",
+                  "$(packageroot)/data/target.vcf.gz",
                   "$(packageroot)/data/globalancestries.csv")
 
 ```
 which returns:
 ```
-LocalAncestry.jl v0.2.0
+LocalAncestry.jl v0.3.2
 Started at 12:18:11 on Mar 3, 2026
 
 Files
@@ -70,6 +72,7 @@ Parameters
    Chromosome
    MAF threshold    0.0001
    IA threshold     0.66
+   Genetic length   100.0 cM
    N threads        1
 
 Reading the locus information
@@ -82,7 +85,7 @@ Reading the reference ancestries
    N individuals   10000, 384, 10000, 411, 10000, 323, 10000
 
 Number of haplotypes
- population  N      unique  omit  use   
+ population  N      unique  omit  use
 ────────────────────────────────────────
  EUR          4000    4000     0   4000
  EAS          4000    4000     0   4000
@@ -101,7 +104,7 @@ Mapping reference ancestries
 Getting haplotype library
    Block ranges
    Block frequencies
-   Haplotype blocks: 180
+   Genome regions: 180
 
 Reading the target haplotypes
 
@@ -111,7 +114,7 @@ Assigning local ancestries
 To understand what LocalAncestry.jl does, we will explain the output in segments. First, some standard information and the input is printed to the screen for later reference:
 
 ```
-LocalAncestry.jl v0.2.0
+LocalAncestry.jl v0.3.2
 Started at 12:18:11 on Mar 3, 2026
 
 Files
@@ -123,12 +126,13 @@ Parameters
    Chromosome
    MAF threshold    0.0001
    IA threshold     0.66
+   Genetic length   100.0 cM
    N threads        1
 ```
 
-This output contains the version of the package, when the analysis was started, the paths to input files, and parameters used for the analysis. In the above, the parameters are chromosome "" which states that the focal chromosome is the first encountered chromosome of the reference VCF file, the average minor allele frequency across ancestral population for inclusion into the analysis is 0.0001, the informativeness for assignment of genome regions should be larger than 0.66, and the number of threads used is one. A higher value for the IA threshold results in larger but fewer genome regions across the chromosome.
+This output contains the version of the package, when the analysis was started, the paths to input files, and parameters used for the analysis. In the above, the parameters are chromosome "" which states that the focal chromosome is the first encountered chromosome of the reference VCF file, the average minor allele frequency across ancestral population for inclusion into the analysis is 0.0001, the informativeness for assignment of genome regions should be larger than 0.66, the genetic length of the focal chromosome is 100 cM, and the number of threads used is one. A higher value for the IA threshold results in larger but fewer genome regions across the chromosome.
 
-The next step is to get the locus information from the reference VCF file. That is, no genotypes are read yet. 
+The next step is to get the locus information from the reference VCF file. That is, no genotypes are read yet.
 ```
 Reading the locus information
    Chromosomes        chr22
@@ -146,7 +150,7 @@ Reading the reference ancestries
 Where the output states that we found 7 different ancestries in our global ancestry file, most of these ancestries have 10K individuals, while others have fewer. By combining this information with the samples in the vcf file, the *localancestry* function identifies 4K haplotypes (2K individuals) for the three populations EUR, EAS, and AFR in the reference VCF file.
 ```
 Number of haplotypes
- population  N      unique  omit  use   
+ population  N      unique  omit  use
 ────────────────────────────────────────
  EUR          4000    4000     0   4000
  EAS          4000    4000     0   4000
@@ -155,7 +159,7 @@ Number of haplotypes
 ```
 These are the reference individuals that will be used for further analysis. Optionally, individual haplotypes from reference individuals could be omitted by supplying a path to the omit parameter.
 
-The next step is to determine which loci in the VCF file that will be used for further analysis. Currently, the only omission factors for loci are whether they are on the focal chromosome and whether their minor allele frequencies is above the lower limit. 
+The next step is to determine which loci in the VCF file that will be used for further analysis. Currently, the only omission factors for loci are whether they are on the focal chromosome and whether their minor allele frequencies is above the lower limit.
 ```
 Subsetting loci
    Loci on focal chromosome:   20129/20129
@@ -185,7 +189,7 @@ Assigning local ancestries
 The output is a DataFrame object with 5 columns:
 ```
 18161×5 DataFrame
-   Row │ individual      chromosome  haplotype  basepairs          ancestry 
+   Row │ individual      chromosome  haplotype  basepairs          ancestry
        │ String          String      Int64      UnitRang…          String
 ───────┼────────────────────────────────────────────────────────────────────
      1 │ admixed_126793  chr22               1  16396408:17217190  EAS
@@ -195,5 +199,4 @@ The output is a DataFrame object with 5 columns:
  18160 │ admixed_138779  chr22               2  31133786:44265564  EUR
  18161 │ admixed_138779  chr22               2  44270505:50780578  EAS
 ```
-where elements in the *individual* column are the names of individuals as stated in the VCF file, the elements of the *chromosome* column is the focal chromosome, the elements of the *haplotype* column are the haplotype number (LocalAncestry currently only works for diploid organisms), elements of the *basepairs* column are the basepair range, and the elements in the *ancestry* are the predicted ancestries. This output format was chosen because it compressed the output to some extend (block-based output rather than locus-based), while preserving human readability. 
-
+where elements in the *individual* column are the names of individuals as stated in the VCF file, the elements of the *chromosome* column is the focal chromosome, the elements of the *haplotype* column are the haplotype number (LocalAncestry currently only works for diploid organisms), elements of the *basepairs* column are the basepair range, and the elements in the *ancestry* are the predicted ancestries. This output format was chosen because it compressed the output to some extend (block-based output rather than locus-based), while preserving human readability.
