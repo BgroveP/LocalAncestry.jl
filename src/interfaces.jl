@@ -1,7 +1,7 @@
 """
     localancestry(referencepath, targetpath, ancestrypath;
                   omitpath="", chromosome="", threshold=0.66, maf=0.0001,
-                  totcm=100.0, printlevel="standard")
+                  totcm=100.0, maxblockfraction=0.1, printlevel="standard")
 
 Estimate local ancestries for the target individuals.
 
@@ -19,6 +19,7 @@ using a hidden Markov model.
 - `threshold::Float64=0.66`: stopping criterion for building genome regions based on the informativeness for assignment statistic.
 - `maf::Float64=0.0001`: lower limit for the across-population minor allele frequency for a locus to be included in the analysis.
 - `totcm::Float64=100.0`: genetic length of the focal chromosome in centiMorgans, used for the state-transition probabilities of the hidden Markov model.
+- `maxblockfraction::Float64=0.1`: upper limit for the length of a genome region, given as a fraction of the number of loci on the focal chromosome. Must be in the interval (0, 1].
 - `printlevel::String="standard"`: either `"standard"` or `"debug"`, where `"debug"` prints additional host information.
 
 # Returns
@@ -33,10 +34,14 @@ function localancestry(
     threshold::Float64=0.66,
     maf::Float64=0.0001,
     totcm::Float64=100.0,
+    maxblockfraction::Float64=0.1,
     printlevel::String="standard"
 )
+    # Check arguments
+    0.0 < maxblockfraction <= 1.0 || throw(ArgumentError("maxblockfraction must be in the interval (0, 1], got $(maxblockfraction)"))
+
     # Print input
-    printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf, totcm)
+    printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf, totcm, maxblockfraction)
 
     # Checks
     println("\nReading the locus information")
@@ -90,7 +95,7 @@ function localancestry(
 
     # Get haplotype library
     println("\nGetting haplotype library")
-    library = get_haplotype_library(refdata, popDict, threshold, wloci)
+    library = get_haplotype_library(refdata, popDict, threshold, wloci; maxblockfraction = maxblockfraction)
     println("   Genome regions: $(length(keys(library)))")
 
     # Estimating Local ancestries

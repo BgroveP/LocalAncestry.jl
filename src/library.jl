@@ -17,7 +17,8 @@ function get_unique_haplotypes!(data::Matrix{Int8}, m::Int, v::Vector{Int}, offs
     end
 end
 
-function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String, UnitRange{Int}}, threshold::Float64, refloci::DataFrame)
+function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String, UnitRange{Int}}, threshold::Float64, refloci::DataFrame;
+                               maxblockfraction::Float64=0.1)
 
     # Initialize
     ## Chunks
@@ -33,7 +34,7 @@ function get_haplotype_library(refdata::Matrix{Int8}, popDict::Dict{String, Unit
 
     # Determine block ranges per chunk
     @threads for i in 1:NCHUNKS
-        internal_blocks = get_haplotype_blocks(refdata, chunks[i], popDict, threshold, refloci)
+        internal_blocks = get_haplotype_blocks(refdata, chunks[i], popDict, threshold, refloci; maxblockfraction = maxblockfraction)
         @lock writelock push!(blocks, internal_blocks...)
     end
 
@@ -86,7 +87,7 @@ function IAsome(countmat, these, n)
     return sum(countmat[1:n, these] .* log.(countmat[1:n, these])) / npopulations - sum(p_bar_v .* log.(p_bar_v))
 end
 
-function get_haplotype_blocks(refdata, c, p, threshold, refloci)
+function get_haplotype_blocks(refdata, c, p, threshold, refloci; maxblockfraction::Float64=0.1)
     # Initialize
     ## Amounts
     nhaplotypes = size(refdata, 1)
@@ -110,7 +111,7 @@ function get_haplotype_blocks(refdata, c, p, threshold, refloci)
     thisi = firsti
     oj = 1
 
-    maxn = Int(ceil(MAX_BLOCK_FRACTION*nloci))
+    maxn = Int(ceil(maxblockfraction*nloci))
 
     # Do work:
     for l in 1:n

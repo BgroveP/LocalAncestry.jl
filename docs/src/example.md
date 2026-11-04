@@ -26,6 +26,7 @@ Parameters
    Chromosome
    MAF threshold    0.0001
    IA threshold     0.66
+   Max block frac.  0.1
    N threads        1
 
 Reading the locus information
@@ -79,6 +80,7 @@ Parameters
    Chromosome
    MAF threshold    0.0001
    IA threshold     0.66
+   Max block frac.  0.1
    N threads        1
 ```
 

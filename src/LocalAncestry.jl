@@ -13,7 +13,6 @@ using Statistics: mean
 PLOIDITY = 2
 NEARZERO_FLOAT::Float64 = 0.0000000000001
 HMM_STATECHANGE_PROB::Float64 = NEARZERO_FLOAT
-MAX_BLOCK_FRACTION::Float64 = 0.1
 
 # Include
 include("library.jl")

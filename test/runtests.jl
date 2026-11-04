@@ -90,6 +90,11 @@ ancestrypath = "$(packageroot)/data/globalancestries.csv"
             @test sum(frequencies) ≈ 1.0
         end
     end
+
+    ## With a non-binding IA threshold, maxblockfraction alone sets the block lengths
+    ## (blocks are computed on the full locus range, so the result is independent of the number of threads)
+    @test LocalAncestry.get_haplotype_blocks(refdata, 1:6, popDict, 10.0, refloci; maxblockfraction = 1.0) == [1:6]
+    @test LocalAncestry.get_haplotype_blocks(refdata, 1:6, popDict, 10.0, refloci; maxblockfraction = 0.5) == [1:3, 4:6]
 end
 
 @testset "Accuracy" begin
@@ -110,8 +115,10 @@ end
 
     x = localancestry(referencepath, targetpath, ancestrypath;
         omitpath = omitpath, chromosome = "chr22", maf = 0.01, totcm = 75.0,
-        printlevel = "debug")
+        maxblockfraction = 0.05, printlevel = "debug")
     @test sort(names(x)) == ["ancestry", "basepairs", "chromosome", "haplotype", "individual"]
     @test all(x.chromosome .== "chr22")
     @test nrow(x) > 0
+
+    @test_throws ArgumentError localancestry(referencepath, targetpath, ancestrypath; maxblockfraction = 0.0)
 end

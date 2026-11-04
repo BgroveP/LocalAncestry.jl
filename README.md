@@ -37,7 +37,8 @@ The optional parameters for the `localancestry` function are:
 3. `threshold::Float64=0.66` is the stopping criterion for building chromosomal regions using the informativeness for assignment statistic.
 4. `maf::Float64=0.0001` is the across-population minor allele frequencies required among reference individuals for a locus to be included in the analysis.
 5. `totcm::Float64=100.0` is the genetic length of the focal chromosome in centiMorgans, which is used for the state-transition probabilities of the hidden Markov model.
-6. `printlevel::String="standard"` is either `"standard"` or `"debug"`, where `"debug"` prints additional information about the host machine.
+6. `maxblockfraction::Float64=0.1` is the upper limit for the length of a genome region, given as a fraction of the number of loci on the focal chromosome.
+7. `printlevel::String="standard"` is either `"standard"` or `"debug"`, where `"debug"` prints additional information about the host machine.
 
 ### Returns
 - `x::DataFrame`: A DataFrame object with the columns *individual* with String elements, *chromosome* with String elements, *haplotype* with Int elements, *basepairs* with UnitRange elements, and *ancestry* with String elements.
@@ -73,6 +74,7 @@ Parameters
    MAF threshold    0.0001
    IA threshold     0.66
    Genetic length   100.0 cM
+   Max block frac.  0.1
    N threads        1
 
 Reading the locus information
@@ -127,10 +129,11 @@ Parameters
    MAF threshold    0.0001
    IA threshold     0.66
    Genetic length   100.0 cM
+   Max block frac.  0.1
    N threads        1
 ```
 
-This output contains the version of the package, when the analysis was started, the paths to input files, and parameters used for the analysis. In the above, the parameters are chromosome "" which states that the focal chromosome is the first encountered chromosome of the reference VCF file, the average minor allele frequency across ancestral population for inclusion into the analysis is 0.0001, the informativeness for assignment of genome regions should be larger than 0.66, the genetic length of the focal chromosome is 100 cM, and the number of threads used is one. A higher value for the IA threshold results in larger but fewer genome regions across the chromosome.
+This output contains the version of the package, when the analysis was started, the paths to input files, and parameters used for the analysis. In the above, the parameters are chromosome "" which states that the focal chromosome is the first encountered chromosome of the reference VCF file, the average minor allele frequency across ancestral population for inclusion into the analysis is 0.0001, the informativeness for assignment of genome regions should be larger than 0.66, the genetic length of the focal chromosome is 100 cM, a genome region spans at most 10% of the loci on the chromosome, and the number of threads used is one. A higher value for the IA threshold results in larger but fewer genome regions across the chromosome.
 
 The next step is to get the locus information from the reference VCF file. That is, no genotypes are read yet.
 ```

@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-04
+
+### Added
+- The maximum length of a genome region can now be set with the new `maxblockfraction` keyword argument to `localancestry` (default 0.1, i.e. 10% of the loci on the focal chromosome). It was previously fixed by the internal constant `MAX_BLOCK_FRACTION`, which has been removed.
+
 ## [0.3.2] - 2026-10-13
 
 ### Added
@@ -51,7 +56,8 @@ Maintenance release with no changes to the public API.
 - The stopping criterion for building genome regions is the informativeness for assignment statistic: a region is extended until the statistic drops below the `threshold` argument (default 0.66).
 - The calculation speed has improved drastically.
 
-[Unreleased]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.3.0...v0.3.2
 [0.3.0]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.1.0...v0.2.0

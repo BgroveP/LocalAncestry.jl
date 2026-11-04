@@ -1,4 +1,4 @@
-function printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf, totcm)
+function printinput(chromosome, referencepath, targetpath, ancestrypath, threshold, printlevel, maf, totcm, maxblockfraction)
 
     println("")
     println("LocalAncestry.jl v$(pkgversion(LocalAncestry))")
@@ -14,6 +14,7 @@ function printinput(chromosome, referencepath, targetpath, ancestrypath, thresho
     println("   MAF threshold    $(maf)")
     println("   IA threshold     $(threshold)")
     println("   Genetic length   $(totcm) cM")
+    println("   Max block frac.  $(maxblockfraction)")
     println("   N threads        $(nthreads())")
 
     if printlevel == "debug"
