@@ -4,14 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-11-04
+## [0.3.2] - 2026-11-06
 
 ### Added
 - The maximum length of a genome region can now be set with the new `maxblockfraction` keyword argument to `localancestry` (default 0.1, i.e. 10% of the loci on the focal chromosome). It was previously fixed by the internal constant `MAX_BLOCK_FRACTION`, which has been removed.
-
-## [0.3.2] - 2026-10-13
-
-### Added
 - The genetic length of the focal chromosome can now be set with the new `totcm` keyword argument to `localancestry` (default 100.0 centiMorgans). It is used for the state-transition probabilities of the hidden Markov model and was previously fixed at 100 cM.
 - `read_rfmix` and `write_flare` are now exported and documented. They convert between the output of `localancestry` and the RFMix and FLARE formats.
 
@@ -56,8 +52,7 @@ Maintenance release with no changes to the public API.
 - The stopping criterion for building genome regions is the informativeness for assignment statistic: a region is extended until the statistic drops below the `threshold` argument (default 0.66).
 - The calculation speed has improved drastically.
 
-[Unreleased]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.3.2...v0.4.0
+[Unreleased]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.3.2...HEAD
 [0.3.2]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.3.0...v0.3.2
 [0.3.0]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/BgroveP/LocalAncestry.jl/compare/v0.1.0...v0.2.0
