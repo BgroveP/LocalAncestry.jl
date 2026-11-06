@@ -7,6 +7,13 @@ on:
     tags: '*'
   pull_request:
 
+concurrency:
+  # All deploying runs (main and tags) share one group so they push to gh-pages
+  # one after another instead of racing each other. Pull request builds don't
+  # deploy, so they get their own group and superseded builds are cancelled.
+  group: ${{ github.event_name == 'pull_request' && format('docs-{0}', github.ref) || 'docs-deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     # These permissions are needed to:
