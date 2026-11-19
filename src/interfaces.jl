@@ -1,7 +1,8 @@
 """
     localancestry(referencepath, targetpath, ancestrypath;
                   omitpath="", chromosome="", threshold=0.66, maf=0.0001,
-                  totcm=100.0, maxblockfraction=0.1, printlevel="standard")
+                  totcm=100.0, maxblockfraction=0.1, blockpath="",
+                  printlevel="standard")
 
 Estimate local ancestries for the target individuals.
 
@@ -20,6 +21,7 @@ using a hidden Markov model.
 - `maf::Float64=0.0001`: lower limit for the across-population minor allele frequency for a locus to be included in the analysis.
 - `totcm::Float64=100.0`: genetic length of the focal chromosome in centiMorgans, used for the state-transition probabilities of the hidden Markov model.
 - `maxblockfraction::Float64=0.1`: upper limit for the length of a genome region, given as a fraction of the number of loci on the focal chromosome. Must be in the interval (0, 1].
+- `blockpath::String=""`: if non-empty, path to a comma-delimited file to which the genome regions (blocks) and their informativeness for assignment statistics are written. The file has one row per block with the columns `chromosome`, `firstlocus` and `lastlocus` (indices among the analysed loci), `nloci`, `startbp`, `endbp`, `nhaplotypes` (number of distinct reference haplotypes), `IA` (informativeness for assignment across all populations; the statistic compared against `threshold`), and `IAmin` (minimum pairwise informativeness for assignment between two populations).
 - `printlevel::String="standard"`: either `"standard"` or `"debug"`, where `"debug"` prints additional host information.
 
 # Returns
@@ -35,6 +37,7 @@ function localancestry(
     maf::Float64=0.0001,
     totcm::Float64=100.0,
     maxblockfraction::Float64=0.1,
+    blockpath::String="",
     printlevel::String="standard"
 )
     # Check arguments
@@ -97,6 +100,13 @@ function localancestry(
     println("\nGetting haplotype library")
     library = get_haplotype_library(refdata, popDict, threshold, wloci; maxblockfraction = maxblockfraction)
     println("   Genome regions: $(length(keys(library)))")
+
+    # Write blocks and their informativeness for assignment
+    if blockpath != ""
+        println("
+Writing genome regions to $(blockpath)")
+        CSV.write(blockpath, block_statistics(refdata, library, popDict, wloci, chromosome))
+    end
 
     # Estimating Local ancestries
     println("\nReading the target haplotypes")

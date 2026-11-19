@@ -188,3 +188,48 @@ function get_haplolib_from_blocks(blocks, refdata, popDict)
 
     return outlib
 end
+
+"""
+    block_statistics(refdata, library, popDict, loci, chromosome)
+
+Summarize the genome regions (blocks) of a haplotype library. Returns a
+DataFrame with one row per block giving its locus indices, base-pair span,
+number of distinct reference haplotypes, the informativeness for assignment
+across all populations (`IA`, the statistic compared against `threshold` when
+the blocks are built) and the minimum pairwise informativeness for assignment
+between any two populations (`IAmin`).
+"""
+function block_statistics(refdata::Matrix{Int8}, library, popDict::Dict{String, UnitRange{Int}}, loci::DataFrame, chromosome)
+    blocks = sort(collect(keys(library)), by = first)
+    nblocks = length(blocks)
+    nhaplotypes = size(refdata, 1)
+    npopulations = length(keys(popDict))
+
+    out = DataFrame(chromosome = fill(string(chromosome), nblocks),
+        firstlocus = first.(blocks),
+        lastlocus = last.(blocks),
+        nloci = length.(blocks),
+        startbp = loci.position[first.(blocks)],
+        endbp = loci.position[last.(blocks)],
+        nhaplotypes = zeros(Int, nblocks),
+        IA = zeros(Float64, nblocks),
+        IAmin = zeros(Float64, nblocks))
+
+    v = zeros(Int, nhaplotypes)
+    countmat = zeros(Float64, nhaplotypes, npopulations)
+    p_bar_v = zeros(Float64, nhaplotypes)
+    hapDict = Dict{Vector{Int8},Int}()
+
+    for (ib, b) in enumerate(blocks)
+        empty!(hapDict)
+        for i in 1:nhaplotypes
+            v[i] = get!(hapDict, refdata[i, b], length(hapDict) + 1)
+        end
+        n = length(hapDict)
+        out.nhaplotypes[ib] = n
+        out.IA[ib] = compute_IA(v, popDict, countmat, p_bar_v, n, npopulations; outtype = "all")
+        out.IAmin[ib] = compute_IA(v, popDict, countmat, p_bar_v, n, npopulations; outtype = "min")
+    end
+
+    return out
+end

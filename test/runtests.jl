@@ -95,6 +95,15 @@ ancestrypath = "$(packageroot)/data/globalancestries.csv"
     ## (blocks are computed on the full locus range, so the result is independent of the number of threads)
     @test LocalAncestry.get_haplotype_blocks(refdata, 1:6, popDict, 10.0, refloci; maxblockfraction = 1.0) == [1:6]
     @test LocalAncestry.get_haplotype_blocks(refdata, 1:6, popDict, 10.0, refloci; maxblockfraction = 0.5) == [1:3, 4:6]
+
+    ## Block statistics
+    stats = LocalAncestry.block_statistics(refdata, library, popDict, refloci, "chr1")
+    @test nrow(stats) == length(keys(library))
+    @test issorted(stats.firstlocus)
+    @test sum(stats.nloci) == 6
+    @test stats.startbp == refloci.position[stats.firstlocus]
+    @test all(stats.nhaplotypes .== [length(library[b]) for b in UnitRange.(stats.firstlocus, stats.lastlocus)])
+    @test all(stats.IA .>= -1e-8)
 end
 
 @testset "Accuracy" begin
@@ -111,14 +120,21 @@ end
     refsamples = LocalAncestry.QGIO.samples(referencepath)
     omits = DataFrame(individual = [refsamples[1], refsamples[1]], haplotype = [1, 2])
     omitpath = joinpath(mktempdir(), "omits.csv")
+    blockpath = joinpath(mktempdir(), "blocks.csv")
     CSV.write(omitpath, omits)
 
     x = localancestry(referencepath, targetpath, ancestrypath;
         omitpath = omitpath, chromosome = "chr22", maf = 0.01, totcm = 75.0,
-        maxblockfraction = 0.05, printlevel = "debug")
+        maxblockfraction = 0.05, blockpath = blockpath, printlevel = "debug")
     @test sort(names(x)) == ["ancestry", "basepairs", "chromosome", "haplotype", "individual"]
     @test all(x.chromosome .== "chr22")
     @test nrow(x) > 0
+
+    blocks = CSV.read(blockpath, DataFrame)
+    @test names(blocks) == ["chromosome", "firstlocus", "lastlocus", "nloci", "startbp", "endbp", "nhaplotypes", "IA", "IAmin"]
+    @test nrow(blocks) > 0
+    @test all(string.(blocks.chromosome) .== "chr22")
+    @test all(blocks.lastlocus[1:(end-1)] .+ 1 .== blocks.firstlocus[2:end])
 
     @test_throws ArgumentError localancestry(referencepath, targetpath, ancestrypath; maxblockfraction = 0.0)
 end

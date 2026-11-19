@@ -38,7 +38,8 @@ The optional parameters for the `localancestry` function are:
 4. `maf::Float64=0.0001` is the across-population minor allele frequencies required among reference individuals for a locus to be included in the analysis.
 5. `totcm::Float64=100.0` is the genetic length of the focal chromosome in centiMorgans, which is used for the state-transition probabilities of the hidden Markov model.
 6. `maxblockfraction::Float64=0.1` is the upper limit for the length of a genome region, given as a fraction of the number of loci on the focal chromosome.
-7. `printlevel::String="standard"` is either `"standard"` or `"debug"`, where `"debug"` prints additional information about the host machine.
+7. `blockpath::String=""` is an optional path to a comma-delimited file to which the genome regions (blocks) are written together with their informativeness for assignment statistics. Each row is a block with the columns *chromosome*, *firstlocus*, *lastlocus*, *nloci*, *startbp*, *endbp*, *nhaplotypes*, *IA* (across all populations, compared against `threshold`), and *IAmin* (minimum over pairs of populations).
+8. `printlevel::String="standard"` is either `"standard"` or `"debug"`, where `"debug"` prints additional information about the host machine.
 
 ### Returns
 - `x::DataFrame`: A DataFrame object with the columns *individual* with String elements, *chromosome* with String elements, *haplotype* with Int elements, *basepairs* with UnitRange elements, and *ancestry* with String elements.
@@ -56,7 +57,7 @@ using LocalAncestry
 packageroot = dirname(dirname(pathof(LocalAncestry)))
 x = localancestry("$(packageroot)/data/reference.vcf.gz",
                   "$(packageroot)/data/target.vcf.gz",
-                  "$(packageroot)/data/globalancestries.csv")
+                  "$(packageroot)/data/globalancestries.csv", blockpath = "blocks.csv")
 
 ```
 which returns:
@@ -107,6 +108,8 @@ Getting haplotype library
    Block ranges
    Block frequencies
    Genome regions: 180
+
+Writing genome regions to blocks.csv
 
 Reading the target haplotypes
 

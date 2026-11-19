@@ -1,8 +1,9 @@
 
 # Release notes
 
-## Version 0.3.2: November 6th, 2026
+## Version 0.3.2: November 19th, 2026
 
+* The genome regions (blocks) and their informativeness for assignment statistics can be written to a file with the new `blockpath` keyword argument to the `localancestry` function.
 * The maximum length of a genome region is no longer fixed at 10 % of the loci; it can be set with the new `maxblockfraction` keyword argument to the `localancestry` function.
 * The genetic length of the focal chromosome is no longer fixed at 100 cM; it can be set with the new `totcm` keyword argument to the `localancestry` function.
 * The `read_rfmix` and `write_flare` functions are now exported and documented.
